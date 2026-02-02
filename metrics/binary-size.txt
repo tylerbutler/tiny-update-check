@@ -1,0 +1,3 @@
+# Binary Size Tracking
+# Format: DATE VERSION SIZE_BYTES HUMAN_READABLE
+# Auto-populated by: just record-size

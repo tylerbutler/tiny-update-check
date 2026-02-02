@@ -1,0 +1,27 @@
+name: Coverage
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  coverage:
+    name: Code Coverage
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
+      - uses: ./.github/actions/setup-rust
+        with:
+          components: llvm-tools-preview
+      - uses: ./.github/actions/install-tools
+        with:
+          tools: cargo-llvm-cov,cargo-nextest
+      - name: Generate coverage
+        run: cargo llvm-cov nextest --all-features --lcov --output-path lcov.info
+      - uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # ratchet:codecov/codecov-action@v5
+        with:
+          files: lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false

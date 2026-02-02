@@ -1,0 +1,43 @@
+# cargo-dist configuration
+# https://opensource.axo.dev/cargo-dist/book/
+
+[dist]
+# The preferred cargo-dist version to use in CI (Alarm: this is generated)
+cargo-dist-version = "0.30.2"
+
+# CI backends to support
+ci = "github"
+
+# The installers to generate for each app
+installers = ["shell", "powershell", "homebrew"]
+
+# Target platforms to build for
+targets = [
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+]
+
+# Where to install binaries
+install-path = "CARGO_HOME"
+
+# Build only the required packages rather than using --workspace
+precise-builds = true
+
+# On PRs, only plan the release, don't actually build
+pr-run-mode = "plan"
+
+# Supply chain security features
+cargo-auditable = true        # Embed dependency info for cargo-audit
+github-attestations = true    # SLSA provenance attestations
+
+# Include CycloneDX Software Bill of Materials
+[dist.sbom]
+sbom-format = ["cyclonedx"]
+
+# Homebrew tap configuration (optional - uncomment and configure)
+# [dist.homebrew]
+# tap = "yourusername/homebrew-tap"
+# formula = "rust-template"

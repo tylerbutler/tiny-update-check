@@ -1,0 +1,51 @@
+[package]
+name = "tiny-update-check"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Tyler Butler <tyler@tylerbutler.com>"]
+description = "A minimal, lightweight crate update checker for Rust CLI applications"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/tylerbutler/tiny-update-check"
+homepage = "https://github.com/tylerbutler/tiny-update-check"
+documentation = "https://docs.rs/tiny-update-check"
+keywords = ["cli", "update", "version", "crates-io", "notification"]
+categories = ["command-line-utilities", "development-tools"]
+readme = "README.md"
+
+[dependencies]
+dirs = "6"
+semver = "1"
+ureq = { version = "3", default-features = false }
+
+[features]
+default = ["native-tls"]
+native-tls = ["ureq/native-tls"]
+rustls = ["ureq/rustls"]
+
+[dev-dependencies]
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
+[profile.profiling]
+inherits = "release"
+debug = true
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"

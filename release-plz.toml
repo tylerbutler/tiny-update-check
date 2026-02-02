@@ -1,0 +1,14 @@
+# release-plz configuration
+# https://release-plz.ieni.dev/docs/config
+
+[workspace]
+allow_dirty = false
+changelog_update = true
+git_release_enable = false  # Let cargo-dist handle releases
+publish = true
+semver_check = true
+
+[[package]]
+name = "rust-template"
+changelog_path = "CHANGELOG.md"
+git_tag_enable = true
