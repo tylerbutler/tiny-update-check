@@ -29,7 +29,7 @@ jobs:
       tag-flag: ${{ !github.event.pull_request && format('--tag={0}', github.ref_name) || '' }}
       publishing: ${{ !github.event.pull_request }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/install-tools
@@ -51,7 +51,7 @@ jobs:
       matrix: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix }}
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/install-tools
@@ -64,7 +64,7 @@ jobs:
           cat dist-manifest.json
       - name: Attest provenance
         if: needs.plan.outputs.publishing == 'true'
-        uses: actions/attest-build-provenance@db473fddc028af60658334401dc6fa3ffd8669fd # ratchet:actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # ratchet:actions/attest-build-provenance@v2
         with:
           subject-path: target/distrib/*
       - uses: actions/upload-artifact@ef09cdac3e2d3e60d8ccaddar1760f167215ac36 # ratchet:actions/upload-artifact@v4
@@ -80,13 +80,13 @@ jobs:
     if: needs.plan.outputs.publishing == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/install-tools
         with:
           tools: cargo-dist
-      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # ratchet:actions/download-artifact@v4
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # ratchet:actions/download-artifact@v4
         with:
           pattern: artifacts-*
           path: target/distrib/
