@@ -7,6 +7,29 @@ changelog_update = true
 git_release_enable = true
 publish = true
 semver_check = true
+# Only create releases for meaningful changes (not CI/chore/docs-only)
+# Matches feat/fix/etc with optional scope - excludes chore/ci/docs/test/build types
+release_commits = "^(feat|fix|perf|refactor|security)(\\([^)]*\\))?:"
+
+[changelog]
+# Order matters - more specific patterns first
+commit_parsers = [
+    # Skip CI-scoped commits (fix(ci), feat(ci), etc.)
+    { message = "^[a-z]+\\(ci\\)", skip = true },
+    # Skip non-code commit types
+    { message = "^chore", skip = true },
+    { message = "^ci", skip = true },
+    { message = "^style", skip = true },
+    { message = "^test", skip = true },
+    { message = "^build", skip = true },
+    # Include meaningful changes
+    { message = "^feat", group = "Features" },
+    { message = "^fix", group = "Bug Fixes" },
+    { message = "^perf", group = "Performance" },
+    { message = "^refactor", group = "Refactor" },
+    { message = "^security", group = "Security" },
+    { message = "^doc", group = "Documentation" },
+]
 
 [[package]]
 name = "tiny-update-check"
