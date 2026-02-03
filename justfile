@@ -130,7 +130,7 @@ changelog: generate-configs
 record-size:
     #!/usr/bin/env bash
     set -euo pipefail
-    BINARY="target/release/rust-template"
+    BINARY="target/release/tiny-update-check"
     if [ ! -f "$BINARY" ]; then
         echo "Release binary not found. Run 'just build-release' first."
         exit 1

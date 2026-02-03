@@ -64,7 +64,7 @@ def main():
 
     output_path = root / "cliff.toml"
     content = CHANGELOG_TEMPLATE.format(
-        name="rust-template",
+        name="tiny-update-check",
         tag_pattern="v[0-9].*",
         commit_parsers=commit_parsers,
     )

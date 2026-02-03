@@ -20,21 +20,21 @@ jobs:
             rust: nightly
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
       - uses: ./.github/actions/setup-rust
         with:
           toolchain: ${{ matrix.rust }}
       - name: Run tests (all features)
         run: cargo test --all-features
-      - name: Run tests (no default features)
-        run: cargo test --no-default-features
+      - name: Run tests (rustls feature)
+        run: cargo test --no-default-features --features rustls
 
   # Minimal Supported Rust Version check
   msrv:
     name: MSRV Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
       - uses: ./.github/actions/setup-rust
         with:
           toolchain: "1.85" # Keep in sync with Cargo.toml rust-version

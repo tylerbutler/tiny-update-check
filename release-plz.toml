@@ -9,6 +9,6 @@ publish = true
 semver_check = true
 
 [[package]]
-name = "rust-template"
+name = "tiny-update-check"
 changelog_path = "CHANGELOG.md"
 git_tag_enable = true
