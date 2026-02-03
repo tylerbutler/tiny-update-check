@@ -1,25 +1,101 @@
 name: Release-plz
-on:
-  push:
-    branches: [main]
 
 permissions:
   pull-requests: write
   contents: write
 
+on:
+  push:
+    branches:
+      - main
+
 jobs:
-  release-plz:
-    name: Release
+  release-plz-release:
+    name: Release-plz release
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-plz-release
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-rust
+
+      - name: Run release-plz release
+        uses: release-plz/action@a4c8e77e7e4da35ce6fea6fb99079dd94fc45559 # ratchet:release-plz/action@v0.5
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  release-plz-pr:
+    name: Release-plz PR
     runs-on: ubuntu-latest
     concurrency:
       group: release-plz-${{ github.ref }}
       cancel-in-progress: false
+
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.RELEASE_PLZ_TOKEN }}
+
       - uses: ./.github/actions/setup-rust
-      - uses: release-plz/action@a4c8e77e7e4da35ce6fea6fb99079dd94fc45559 # ratchet:release-plz/action@v0.5
+
+      - name: Run release-plz release-pr
+        id: release-plz
+        uses: release-plz/action@a4c8e77e7e4da35ce6fea6fb99079dd94fc45559 # ratchet:release-plz/action@v0.5
+        with:
+          command: release-pr
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Install git-cliff
+        if: steps.release-plz.outputs.prs_created == 'true'
+        uses: taiki-e/install-action@50cee16bd6b97b2579572f83cfa1c0a721b1e336 # ratchet:taiki-e/install-action@v2
+        with:
+          tool: git-cliff
+
+      - name: Generate changelog with git-cliff
+        if: steps.release-plz.outputs.prs_created == 'true'
+        env:
+          PR_HEAD_BRANCH: ${{ fromJson(steps.release-plz.outputs.pr).head_branch }}
+        run: |
+          # Checkout the PR branch
+          git fetch origin "$PR_HEAD_BRANCH"
+          git checkout "$PR_HEAD_BRANCH"
+
+          # Extract version from Cargo.toml (release-plz already bumped it)
+          VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          echo "Generating changelog for version: $VERSION"
+
+          # Generate changelog with the release version (avoids "unreleased" header)
+          git cliff --tag "v$VERSION" -o CHANGELOG.md
+
+      - name: Commit changelog updates
+        if: steps.release-plz.outputs.prs_created == 'true'
+        env:
+          PR_HEAD_BRANCH: ${{ fromJson(steps.release-plz.outputs.pr).head_branch }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Stage changelog
+          git add CHANGELOG.md
+
+          # Check if there are changes to commit
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update changelog"
+            git push origin "$PR_HEAD_BRANCH"
+          fi

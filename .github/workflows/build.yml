@@ -34,6 +34,6 @@ jobs:
         with:
           name: binary-${{ matrix.target }}
           path: |
-            target/${{ matrix.target }}/release/rust-template
-            target/${{ matrix.target }}/release/rust-template.exe
+            target/${{ matrix.target }}/release/tiny-update-check
+            target/${{ matrix.target }}/release/tiny-update-check.exe
           if-no-files-found: ignore

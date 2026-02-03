@@ -40,4 +40,4 @@ sbom-format = ["cyclonedx"]
 # Homebrew tap configuration (optional - uncomment and configure)
 # [dist.homebrew]
 # tap = "yourusername/homebrew-tap"
-# formula = "rust-template"
+# formula = "tiny-update-check"

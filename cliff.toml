@@ -1,4 +1,4 @@
-# git-cliff config for rust-template
+# git-cliff config for tiny-update-check
 # Auto-generated from commit-types.json - edit that file instead
 
 [changelog]
