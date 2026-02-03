@@ -24,13 +24,13 @@ jobs:
             os: windows-latest
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
       - uses: ./.github/actions/setup-rust
         with:
           targets: ${{ matrix.target }}
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
-      - uses: actions/upload-artifact@ef09cdac3e2d3e60d8ccaddar1760f167215ac36 # ratchet:actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4
         with:
           name: binary-${{ matrix.target }}
           path: |

@@ -29,7 +29,7 @@ jobs:
       tag-flag: ${{ !github.event.pull_request && format('--tag={0}', github.ref_name) || '' }}
       publishing: ${{ !github.event.pull_request }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/install-tools
@@ -51,7 +51,7 @@ jobs:
       matrix: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix }}
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/install-tools
@@ -64,10 +64,10 @@ jobs:
           cat dist-manifest.json
       - name: Attest provenance
         if: needs.plan.outputs.publishing == 'true'
-        uses: actions/attest-build-provenance@db473fddc028af60658334401dc6fa3ffd8669fd # ratchet:actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # ratchet:actions/attest-build-provenance@v2
         with:
           subject-path: target/distrib/*
-      - uses: actions/upload-artifact@ef09cdac3e2d3e60d8ccaddar1760f167215ac36 # ratchet:actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4
         with:
           name: artifacts-build-local-${{ join(matrix.targets, '_') }}
           path: |
@@ -80,13 +80,13 @@ jobs:
     if: needs.plan.outputs.publishing == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
         with:
           submodules: recursive
       - uses: ./.github/actions/install-tools
         with:
           tools: cargo-dist
-      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # ratchet:actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4
         with:
           pattern: artifacts-*
           path: target/distrib/
