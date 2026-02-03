@@ -26,8 +26,8 @@ jobs:
           toolchain: ${{ matrix.rust }}
       - name: Run tests (all features)
         run: cargo test --all-features
-      - name: Run tests (no default features)
-        run: cargo test --no-default-features
+      - name: Run tests (rustls feature)
+        run: cargo test --no-default-features --features rustls
 
   # Minimal Supported Rust Version check
   msrv:
