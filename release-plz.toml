@@ -8,6 +8,21 @@ git_release_enable = true
 publish = true
 semver_check = true
 
+[changelog]
+commit_parsers = [
+    { message = "^feat", group = "Features" },
+    { message = "^fix", group = "Bug Fixes" },
+    { message = "^perf", group = "Performance" },
+    { message = "^refactor", group = "Refactor" },
+    { message = "^security", group = "Security" },
+    { message = "^doc", group = "Documentation" },
+    { message = "^chore", skip = true },
+    { message = "^ci", skip = true },
+    { message = "^style", skip = true },
+    { message = "^test", skip = true },
+    { message = "^build", skip = true },
+]
+
 [[package]]
 name = "tiny-update-check"
 changelog_path = "CHANGELOG.md"
