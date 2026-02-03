@@ -4,7 +4,7 @@
 [workspace]
 allow_dirty = false
 changelog_update = true
-git_release_enable = false  # Let cargo-dist handle releases
+git_release_enable = true
 publish = true
 semver_check = true
 
