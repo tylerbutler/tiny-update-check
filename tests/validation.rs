@@ -8,8 +8,8 @@
 
 use tiny_update_check::{Error, UpdateChecker};
 
-/// Helper to check if an error is InvalidCrateName
-fn is_invalid_crate_name(err: &Error) -> bool {
+/// Helper to check if an error is `InvalidCrateName`
+const fn is_invalid_crate_name(err: &Error) -> bool {
     matches!(err, Error::InvalidCrateName(_))
 }
 

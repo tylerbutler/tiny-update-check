@@ -1,6 +1,6 @@
 //! Tests for async update checking (requires `async` feature)
 //!
-//! Run with: cargo test --features async --test async_check
+//! Run with: cargo test --features async --test `async_check`
 
 #![cfg(feature = "async")]
 
