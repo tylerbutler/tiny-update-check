@@ -67,6 +67,8 @@ pub enum Error {
     VersionError(String),
     /// Cache I/O error.
     CacheError(String),
+    /// Invalid crate name provided.
+    InvalidCrateName(String),
 }
 
 impl std::fmt::Display for Error {
@@ -76,6 +78,7 @@ impl std::fmt::Display for Error {
             Self::ParseError(msg) => write!(f, "Parse error: {msg}"),
             Self::VersionError(msg) => write!(f, "Version error: {msg}"),
             Self::CacheError(msg) => write!(f, "Cache error: {msg}"),
+            Self::InvalidCrateName(msg) => write!(f, "Invalid crate name: {msg}"),
         }
     }
 }
@@ -156,9 +159,10 @@ impl UpdateChecker {
     ///
     /// # Errors
     ///
-    /// Returns an error if the HTTP request fails, the response cannot be parsed,
-    /// or version comparison fails.
+    /// Returns an error if the crate name is invalid, the HTTP request fails,
+    /// the response cannot be parsed, or version comparison fails.
     pub fn check(&self) -> Result<Option<UpdateInfo>, Error> {
+        validate_crate_name(&self.crate_name)?;
         let latest = self.get_latest_version()?;
 
         let current = semver::Version::parse(&self.current_version)
@@ -296,6 +300,43 @@ pub fn extract_newest_version(body: &str) -> Result<String, Error> {
         .ok_or_else(|| Error::ParseError("malformed JSON: unclosed version string".to_string()))?;
 
     Ok(version_start[..quote_end].to_string())
+}
+
+/// Validate a crate name according to Cargo's rules.
+///
+/// Valid crate names must:
+/// - Be non-empty
+/// - Start with an ASCII alphabetic character
+/// - Contain only ASCII alphanumeric characters, `-`, or `_`
+/// - Be at most 64 characters long
+fn validate_crate_name(name: &str) -> Result<(), Error> {
+    if name.is_empty() {
+        return Err(Error::InvalidCrateName("crate name cannot be empty".to_string()));
+    }
+
+    if name.len() > 64 {
+        return Err(Error::InvalidCrateName(format!(
+            "crate name exceeds 64 characters: {}",
+            name.len()
+        )));
+    }
+
+    let first_char = name.chars().next().unwrap(); // safe: checked non-empty
+    if !first_char.is_ascii_alphabetic() {
+        return Err(Error::InvalidCrateName(format!(
+            "crate name must start with a letter, found: '{first_char}'"
+        )));
+    }
+
+    for ch in name.chars() {
+        if !ch.is_ascii_alphanumeric() && ch != '-' && ch != '_' {
+            return Err(Error::InvalidCrateName(format!(
+                "invalid character in crate name: '{ch}'"
+            )));
+        }
+    }
+
+    Ok(())
 }
 
 /// Build TLS configuration based on enabled features.
