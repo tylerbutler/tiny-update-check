@@ -106,6 +106,7 @@ pub struct UpdateChecker {
     cache_duration: Duration,
     timeout: Duration,
     cache_dir: Option<PathBuf>,
+    include_prerelease: bool,
 }
 
 impl UpdateChecker {
@@ -123,6 +124,7 @@ impl UpdateChecker {
             cache_duration: Duration::from_secs(24 * 60 * 60), // 24 hours
             timeout: Duration::from_secs(5),
             cache_dir: dirs::cache_dir(),
+            include_prerelease: false,
         }
     }
 
@@ -151,6 +153,17 @@ impl UpdateChecker {
         self
     }
 
+    /// Include pre-release versions in update checks. Defaults to `false`.
+    ///
+    /// When `false` (the default), versions like `2.0.0-alpha.1` or `2.0.0-beta`
+    /// will not be reported as available updates. Set to `true` to receive
+    /// notifications about pre-release versions.
+    #[must_use]
+    pub const fn include_prerelease(mut self, include: bool) -> Self {
+        self.include_prerelease = include;
+        self
+    }
+
     /// Check for updates.
     ///
     /// Returns `Ok(Some(UpdateInfo))` if a newer version is available,
@@ -169,6 +182,11 @@ impl UpdateChecker {
             .map_err(|e| Error::VersionError(format!("Invalid current version: {e}")))?;
         let latest_ver = semver::Version::parse(&latest)
             .map_err(|e| Error::VersionError(format!("Invalid latest version: {e}")))?;
+
+        // Filter out pre-release versions unless explicitly included
+        if !self.include_prerelease && !latest_ver.pre.is_empty() {
+            return Ok(None);
+        }
 
         if latest_ver > current {
             Ok(Some(UpdateInfo {
@@ -416,5 +434,28 @@ mod tests {
 
         let err = Error::ParseError("invalid json".to_string());
         assert_eq!(err.to_string(), "Parse error: invalid json");
+
+        let err = Error::InvalidCrateName("empty".to_string());
+        assert_eq!(err.to_string(), "Invalid crate name: empty");
+    }
+
+    #[test]
+    fn test_include_prerelease_default() {
+        let checker = UpdateChecker::new("test-crate", "1.0.0");
+        assert!(!checker.include_prerelease);
+    }
+
+    #[test]
+    fn test_include_prerelease_enabled() {
+        let checker = UpdateChecker::new("test-crate", "1.0.0")
+            .include_prerelease(true);
+        assert!(checker.include_prerelease);
+    }
+
+    #[test]
+    fn test_include_prerelease_disabled() {
+        let checker = UpdateChecker::new("test-crate", "1.0.0")
+            .include_prerelease(false);
+        assert!(!checker.include_prerelease);
     }
 }
