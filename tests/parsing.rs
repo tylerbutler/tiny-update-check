@@ -41,7 +41,10 @@ fn fails_on_missing_crate_field() {
     let result = extract_newest_version(MISSING_CRATE);
     assert!(result.is_err());
     let err = result.unwrap_err().to_string();
-    assert!(err.contains("crate"), "Error should mention 'crate' field: {err}");
+    assert!(
+        err.contains("crate"),
+        "Error should mention 'crate' field: {err}"
+    );
 }
 
 #[test]

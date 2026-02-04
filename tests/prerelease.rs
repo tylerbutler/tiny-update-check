@@ -11,15 +11,13 @@ use tiny_update_check::UpdateChecker;
 #[test]
 fn builder_has_include_prerelease_method() {
     // Should compile - verifies the method exists
-    let _checker = UpdateChecker::new("test", "1.0.0")
-        .include_prerelease(true);
+    let _checker = UpdateChecker::new("test", "1.0.0").include_prerelease(true);
 }
 
 #[test]
 fn builder_has_include_prerelease_false() {
     // Should compile - verifies the method exists with false
-    let _checker = UpdateChecker::new("test", "1.0.0")
-        .include_prerelease(false);
+    let _checker = UpdateChecker::new("test", "1.0.0").include_prerelease(false);
 }
 
 // Integration-style tests that verify the filtering behavior.
@@ -46,8 +44,7 @@ mod filtering_behavior {
 
     #[test]
     fn include_prerelease_can_be_enabled() {
-        let checker = UpdateChecker::new("serde", "1.0.0")
-            .include_prerelease(true);
+        let checker = UpdateChecker::new("serde", "1.0.0").include_prerelease(true);
         assert!(std::mem::size_of_val(&checker) > 0);
     }
 

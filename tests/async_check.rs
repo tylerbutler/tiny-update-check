@@ -22,8 +22,7 @@ async fn async_checker_with_options() {
 
 #[tokio::test]
 async fn async_check_real_crate() {
-    let checker = UpdateChecker::new("serde", "0.0.1")
-        .cache_duration(Duration::ZERO); // Disable cache for test
+    let checker = UpdateChecker::new("serde", "0.0.1").cache_duration(Duration::ZERO); // Disable cache for test
 
     let result = checker.check().await;
     assert!(result.is_ok(), "Check should succeed: {:?}", result.err());

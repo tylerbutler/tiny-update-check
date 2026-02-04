@@ -19,7 +19,10 @@ fn rejects_empty_crate_name() {
     let result = checker.check();
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert!(is_invalid_crate_name(&err), "Expected InvalidCrateName, got: {err}");
+    assert!(
+        is_invalid_crate_name(&err),
+        "Expected InvalidCrateName, got: {err}"
+    );
 }
 
 #[test]
@@ -28,7 +31,10 @@ fn rejects_crate_name_with_spaces() {
     let result = checker.check();
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert!(is_invalid_crate_name(&err), "Expected InvalidCrateName, got: {err}");
+    assert!(
+        is_invalid_crate_name(&err),
+        "Expected InvalidCrateName, got: {err}"
+    );
 }
 
 #[test]
@@ -37,7 +43,10 @@ fn rejects_crate_name_with_special_chars() {
     let result = checker.check();
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert!(is_invalid_crate_name(&err), "Expected InvalidCrateName, got: {err}");
+    assert!(
+        is_invalid_crate_name(&err),
+        "Expected InvalidCrateName, got: {err}"
+    );
 }
 
 #[test]
@@ -46,7 +55,10 @@ fn rejects_crate_name_starting_with_number() {
     let result = checker.check();
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert!(is_invalid_crate_name(&err), "Expected InvalidCrateName, got: {err}");
+    assert!(
+        is_invalid_crate_name(&err),
+        "Expected InvalidCrateName, got: {err}"
+    );
 }
 
 #[test]
@@ -55,7 +67,10 @@ fn rejects_crate_name_starting_with_hyphen() {
     let result = checker.check();
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert!(is_invalid_crate_name(&err), "Expected InvalidCrateName, got: {err}");
+    assert!(
+        is_invalid_crate_name(&err),
+        "Expected InvalidCrateName, got: {err}"
+    );
 }
 
 #[test]
@@ -64,7 +79,10 @@ fn rejects_crate_name_starting_with_underscore() {
     let result = checker.check();
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert!(is_invalid_crate_name(&err), "Expected InvalidCrateName, got: {err}");
+    assert!(
+        is_invalid_crate_name(&err),
+        "Expected InvalidCrateName, got: {err}"
+    );
 }
 
 #[test]
@@ -74,7 +92,10 @@ fn rejects_crate_name_too_long() {
     let result = checker.check();
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert!(is_invalid_crate_name(&err), "Expected InvalidCrateName, got: {err}");
+    assert!(
+        is_invalid_crate_name(&err),
+        "Expected InvalidCrateName, got: {err}"
+    );
 }
 
 #[test]
@@ -85,7 +106,10 @@ fn accepts_valid_simple_name() {
     let result = checker.check();
     // Should either succeed or fail with HTTP/Parse error, not InvalidCrateName
     if let Err(err) = &result {
-        assert!(!is_invalid_crate_name(err), "Should not be InvalidCrateName: {err}");
+        assert!(
+            !is_invalid_crate_name(err),
+            "Should not be InvalidCrateName: {err}"
+        );
     }
 }
 
@@ -94,7 +118,10 @@ fn accepts_valid_name_with_hyphens() {
     let checker = UpdateChecker::new("my-cool-crate", "0.0.1");
     let result = checker.check();
     if let Err(err) = &result {
-        assert!(!is_invalid_crate_name(err), "Should not be InvalidCrateName: {err}");
+        assert!(
+            !is_invalid_crate_name(err),
+            "Should not be InvalidCrateName: {err}"
+        );
     }
 }
 
@@ -103,7 +130,10 @@ fn accepts_valid_name_with_underscores() {
     let checker = UpdateChecker::new("my_cool_crate", "0.0.1");
     let result = checker.check();
     if let Err(err) = &result {
-        assert!(!is_invalid_crate_name(err), "Should not be InvalidCrateName: {err}");
+        assert!(
+            !is_invalid_crate_name(err),
+            "Should not be InvalidCrateName: {err}"
+        );
     }
 }
 
@@ -112,7 +142,10 @@ fn accepts_valid_name_with_numbers() {
     let checker = UpdateChecker::new("crate2", "0.0.1");
     let result = checker.check();
     if let Err(err) = &result {
-        assert!(!is_invalid_crate_name(err), "Should not be InvalidCrateName: {err}");
+        assert!(
+            !is_invalid_crate_name(err),
+            "Should not be InvalidCrateName: {err}"
+        );
     }
 }
 
@@ -122,6 +155,9 @@ fn accepts_max_length_name() {
     let checker = UpdateChecker::new(max_name, "0.0.1");
     let result = checker.check();
     if let Err(err) = &result {
-        assert!(!is_invalid_crate_name(err), "Should not be InvalidCrateName: {err}");
+        assert!(
+            !is_invalid_crate_name(err),
+            "Should not be InvalidCrateName: {err}"
+        );
     }
 }

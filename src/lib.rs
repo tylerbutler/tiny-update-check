@@ -295,17 +295,17 @@ pub fn extract_newest_version(body: &str) -> Result<String, Error> {
 
     // Find "newest_version" within the crate object
     let version_key = r#""newest_version""#;
-    let key_pos = search_region
-        .find(version_key)
-        .ok_or_else(|| Error::ParseError("'newest_version' field not found in response".to_string()))?;
+    let key_pos = search_region.find(version_key).ok_or_else(|| {
+        Error::ParseError("'newest_version' field not found in response".to_string())
+    })?;
 
     // Move past the key
     let after_key = &search_region[key_pos + version_key.len()..];
 
     // Find the colon (handles optional whitespace)
-    let colon_pos = after_key
-        .find(':')
-        .ok_or_else(|| Error::ParseError("malformed JSON: missing colon after newest_version".to_string()))?;
+    let colon_pos = after_key.find(':').ok_or_else(|| {
+        Error::ParseError("malformed JSON: missing colon after newest_version".to_string())
+    })?;
 
     // Move past the colon and any whitespace
     let after_colon = &after_key[colon_pos + 1..];
@@ -336,7 +336,9 @@ pub fn extract_newest_version(body: &str) -> Result<String, Error> {
 /// - Be at most 64 characters long
 fn validate_crate_name(name: &str) -> Result<(), Error> {
     if name.is_empty() {
-        return Err(Error::InvalidCrateName("crate name cannot be empty".to_string()));
+        return Err(Error::InvalidCrateName(
+            "crate name cannot be empty".to_string(),
+        ));
     }
 
     if name.len() > 64 {
@@ -454,15 +456,13 @@ mod tests {
 
     #[test]
     fn test_include_prerelease_enabled() {
-        let checker = UpdateChecker::new("test-crate", "1.0.0")
-            .include_prerelease(true);
+        let checker = UpdateChecker::new("test-crate", "1.0.0").include_prerelease(true);
         assert!(checker.include_prerelease);
     }
 
     #[test]
     fn test_include_prerelease_disabled() {
-        let checker = UpdateChecker::new("test-crate", "1.0.0")
-            .include_prerelease(false);
+        let checker = UpdateChecker::new("test-crate", "1.0.0").include_prerelease(false);
         assert!(!checker.include_prerelease);
     }
 }

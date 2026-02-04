@@ -19,7 +19,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use crate::{extract_newest_version, validate_crate_name, Error, UpdateInfo};
+use crate::{Error, UpdateInfo, extract_newest_version, validate_crate_name};
 
 /// An async update checker for crates.io.
 ///
@@ -189,5 +189,7 @@ pub async fn check(
     crate_name: impl Into<String>,
     current_version: impl Into<String>,
 ) -> Result<Option<UpdateInfo>, Error> {
-    UpdateChecker::new(crate_name, current_version).check().await
+    UpdateChecker::new(crate_name, current_version)
+        .check()
+        .await
 }
