@@ -1,7 +1,7 @@
 //! Minimal binary for measuring size impact.
 //!
-//! Build with: cargo build --release --example size_check
-//! Check size: ls -lh target/release/examples/size_check
+//! Build with: `cargo build --release --example size_check`
+//! Check size: `ls -lh target/release/examples/size_check`
 
 fn main() {
     match tiny_update_check::check("serde", "1.0.0") {
