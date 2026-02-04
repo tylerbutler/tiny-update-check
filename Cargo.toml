@@ -17,13 +17,16 @@ readme = "README.md"
 dirs = "6"
 semver = "1"
 ureq = { version = "3", default-features = false }
+reqwest = { version = "0.12", optional = true, default-features = false, features = ["rustls-tls"] }
 
 [features]
 default = ["native-tls"]
 native-tls = ["ureq/native-tls"]
 rustls = ["ureq/rustls"]
+async = ["reqwest"]
 
 [dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
 [profile.release]
 strip = true

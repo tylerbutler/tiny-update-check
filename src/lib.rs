@@ -42,6 +42,13 @@
 //!
 //! - `native-tls` (default): Uses system TLS, smaller binary size
 //! - `rustls`: Pure Rust TLS, better for cross-compilation
+//! - `async`: Enables async support using `reqwest`
+
+/// Async update checking module (requires `async` feature).
+///
+/// This module provides async versions of the update checker using `reqwest`.
+#[cfg(feature = "async")]
+pub mod r#async;
 
 use std::fs;
 use std::path::PathBuf;
