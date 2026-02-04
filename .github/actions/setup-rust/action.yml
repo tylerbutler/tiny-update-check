@@ -3,8 +3,8 @@ description: Standardized Rust toolchain setup with caching
 
 inputs:
   toolchain:
-    description: Rust toolchain to install
-    default: stable
+    description: Rust toolchain to install (leave empty to use rust-toolchain.toml)
+    default: ''
   components:
     description: Additional components (comma-separated)
     default: ''
@@ -18,13 +18,25 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Determine toolchain
+      id: toolchain
+      shell: bash
+      run: |
+        if [[ -n "${{ inputs.toolchain }}" ]]; then
+          echo "version=${{ inputs.toolchain }}" >> "$GITHUB_OUTPUT"
+        elif [[ -f rust-toolchain.toml ]]; then
+          VERSION=$(grep 'channel' rust-toolchain.toml | cut -d'"' -f2)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        else
+          echo "version=stable" >> "$GITHUB_OUTPUT"
+        fi
     - uses: dtolnay/rust-toolchain@6d9817901c499d6b02debbb57edb38d33daa680b # ratchet:dtolnay/rust-toolchain@stable
       with:
-        toolchain: ${{ inputs.toolchain }}
+        toolchain: ${{ steps.toolchain.outputs.version }}
         components: ${{ inputs.components }}
         targets: ${{ inputs.targets }}
     - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # ratchet:Swatinem/rust-cache@v2
       if: inputs.cache == 'true'
       with:
-        shared-key: "rust-${{ runner.os }}-${{ inputs.toolchain }}"
+        shared-key: "rust-${{ runner.os }}-${{ steps.toolchain.outputs.version }}"
         cache-on-failure: true

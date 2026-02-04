@@ -81,7 +81,95 @@ jobs:
           # Generate changelog with the release version (avoids "unreleased" header)
           git cliff --tag "v$VERSION" -o CHANGELOG.md
 
-      - name: Commit changelog updates
+      - name: Install cargo-bloated
+        if: steps.release-plz.outputs.prs_created == 'true'
+        uses: taiki-e/install-action@650c5ca14212efbbf3e580844b04bdccf68dac31 # ratchet:taiki-e/install-action@v2
+        with:
+          tool: cargo-bloated
+
+      - uses: ./.github/actions/install-tools
+        if: steps.release-plz.outputs.prs_created == 'true'
+        with:
+          tools: just
+
+      - name: Record binary size metrics
+        id: binary-size
+        if: steps.release-plz.outputs.prs_created == 'true'
+        run: |
+          # Get previous sizes from metrics file
+          PREV_NATIVE=$(grep 'native-tls' metrics/binary-size.txt | tail -1 | awk '{print $4}' || echo "0")
+          PREV_RUSTLS=$(grep 'rustls' metrics/binary-size.txt | tail -1 | awk '{print $4}' || echo "0")
+
+          # Build both examples
+          cargo build --release --example size_check
+          cargo build --release --example size_check_rustls --no-default-features --features rustls
+
+          VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          DATE=$(date +%Y-%m-%d)
+
+          # Record native-tls size
+          SIZE_NATIVE=$(stat --format="%s" target/release/examples/size_check)
+          HUMAN_NATIVE=$(numfmt --to=iec --suffix=B "$SIZE_NATIVE")
+          echo "$DATE v$VERSION native-tls $SIZE_NATIVE $HUMAN_NATIVE" >> metrics/binary-size.txt
+          echo "Recorded native-tls: $SIZE_NATIVE ($HUMAN_NATIVE)"
+
+          # Record rustls size
+          SIZE_RUSTLS=$(stat --format="%s" target/release/examples/size_check_rustls)
+          HUMAN_RUSTLS=$(numfmt --to=iec --suffix=B "$SIZE_RUSTLS")
+          echo "$DATE v$VERSION rustls $SIZE_RUSTLS $HUMAN_RUSTLS" >> metrics/binary-size.txt
+          echo "Recorded rustls: $SIZE_RUSTLS ($HUMAN_RUSTLS)"
+
+          # Generate bloat reports
+          just bloat
+
+          # Calculate native-tls diff
+          if [ "$PREV_NATIVE" != "0" ] && [ -n "$PREV_NATIVE" ]; then
+            DIFF_NATIVE=$((SIZE_NATIVE - PREV_NATIVE))
+            DIFF_NATIVE_HUMAN=$(numfmt --to=iec --suffix=B -- "$DIFF_NATIVE" 2>/dev/null || echo "${DIFF_NATIVE}B")
+            PREV_NATIVE_HUMAN=$(numfmt --to=iec --suffix=B "$PREV_NATIVE")
+            if [ "$DIFF_NATIVE" -gt 0 ]; then
+              DIFF_NATIVE_HUMAN="+$DIFF_NATIVE_HUMAN"
+            fi
+            PERCENT_NATIVE=$(awk "BEGIN {printf \"%.1f\", ($DIFF_NATIVE / $PREV_NATIVE) * 100}")
+            if [ "$DIFF_NATIVE" -gt 0 ]; then
+              PERCENT_NATIVE="+$PERCENT_NATIVE"
+            fi
+            echo "native_size=$HUMAN_NATIVE" >> "$GITHUB_OUTPUT"
+            echo "native_prev_size=$PREV_NATIVE_HUMAN" >> "$GITHUB_OUTPUT"
+            echo "native_diff=$DIFF_NATIVE_HUMAN" >> "$GITHUB_OUTPUT"
+            echo "native_percent=$PERCENT_NATIVE%" >> "$GITHUB_OUTPUT"
+            echo "native_changed=$( [ "$DIFF_NATIVE" -ne 0 ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
+          else
+            echo "native_size=$HUMAN_NATIVE" >> "$GITHUB_OUTPUT"
+            echo "native_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Calculate rustls diff
+          if [ "$PREV_RUSTLS" != "0" ] && [ -n "$PREV_RUSTLS" ]; then
+            DIFF_RUSTLS=$((SIZE_RUSTLS - PREV_RUSTLS))
+            DIFF_RUSTLS_HUMAN=$(numfmt --to=iec --suffix=B -- "$DIFF_RUSTLS" 2>/dev/null || echo "${DIFF_RUSTLS}B")
+            PREV_RUSTLS_HUMAN=$(numfmt --to=iec --suffix=B "$PREV_RUSTLS")
+            if [ "$DIFF_RUSTLS" -gt 0 ]; then
+              DIFF_RUSTLS_HUMAN="+$DIFF_RUSTLS_HUMAN"
+            fi
+            PERCENT_RUSTLS=$(awk "BEGIN {printf \"%.1f\", ($DIFF_RUSTLS / $PREV_RUSTLS) * 100}")
+            if [ "$DIFF_RUSTLS" -gt 0 ]; then
+              PERCENT_RUSTLS="+$PERCENT_RUSTLS"
+            fi
+            echo "rustls_size=$HUMAN_RUSTLS" >> "$GITHUB_OUTPUT"
+            echo "rustls_prev_size=$PREV_RUSTLS_HUMAN" >> "$GITHUB_OUTPUT"
+            echo "rustls_diff=$DIFF_RUSTLS_HUMAN" >> "$GITHUB_OUTPUT"
+            echo "rustls_percent=$PERCENT_RUSTLS%" >> "$GITHUB_OUTPUT"
+            echo "rustls_changed=$( [ "$DIFF_RUSTLS" -ne 0 ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
+          else
+            echo "rustls_size=$HUMAN_RUSTLS" >> "$GITHUB_OUTPUT"
+            echo "rustls_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Set overall changed flag
+          echo "changed=$( [ "$DIFF_NATIVE" -ne 0 ] || [ "$DIFF_RUSTLS" -ne 0 ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
+
+      - name: Commit changelog and metrics updates
         if: steps.release-plz.outputs.prs_created == 'true'
         env:
           PR_HEAD_BRANCH: ${{ fromJson(steps.release-plz.outputs.pr).head_branch }}
@@ -89,13 +177,27 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Stage changelog
-          git add CHANGELOG.md
+          # Stage changelog and metrics
+          git add CHANGELOG.md metrics/
 
           # Check if there are changes to commit
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: update changelog"
+            git commit -m "chore: update changelog and binary size metrics"
             git push origin "$PR_HEAD_BRANCH"
           fi
+
+      - name: Comment on PR with binary size change
+        if: steps.release-plz.outputs.prs_created == 'true' && steps.binary-size.outputs.changed == 'true'
+        uses: marocchino/sticky-pull-request-comment@52423e01640425a022ef5fd42c6fb5f633a02728 # ratchet:marocchino/sticky-pull-request-comment@v2
+        with:
+          header: binary-size
+          number: ${{ fromJson(steps.release-plz.outputs.pr).number }}
+          message: |
+            ## 📦 Binary Size
+
+            | Feature | Current | Previous | Change |
+            |---------|---------|----------|--------|
+            | native-tls | ${{ steps.binary-size.outputs.native_size }} | ${{ steps.binary-size.outputs.native_prev_size }} | ${{ steps.binary-size.outputs.native_diff }} (${{ steps.binary-size.outputs.native_percent }}) |
+            | rustls | ${{ steps.binary-size.outputs.rustls_size }} | ${{ steps.binary-size.outputs.rustls_prev_size }} | ${{ steps.binary-size.outputs.rustls_diff }} (${{ steps.binary-size.outputs.rustls_percent }}) |
