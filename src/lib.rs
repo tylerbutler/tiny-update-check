@@ -208,7 +208,7 @@ impl UpdateChecker {
     }
 
     /// Read from cache if it exists and is fresh.
-    fn read_cache(&self, path: &PathBuf) -> Option<String> {
+    fn read_cache(&self, path: &std::path::Path) -> Option<String> {
         let metadata = fs::metadata(path).ok()?;
         let modified = metadata.modified().ok()?;
         let age = SystemTime::now().duration_since(modified).ok()?;
@@ -224,17 +224,16 @@ impl UpdateChecker {
     fn fetch_latest_version(&self) -> Result<String, Error> {
         let url = format!("https://crates.io/api/v1/crates/{}", self.crate_name);
 
-        let tls_config = build_tls_config();
-        let config = ureq::Agent::config_builder()
+        let agent: ureq::Agent = ureq::Agent::config_builder()
             .timeout_global(Some(self.timeout))
             .user_agent(concat!(
                 env!("CARGO_PKG_NAME"),
                 "/",
                 env!("CARGO_PKG_VERSION")
             ))
-            .tls_config(tls_config)
-            .build();
-        let agent: ureq::Agent = config.into();
+            .tls_config(build_tls_config())
+            .build()
+            .into();
 
         let body = agent
             .get(&url)
@@ -261,24 +260,16 @@ impl UpdateChecker {
 
 /// Build TLS configuration based on enabled features.
 fn build_tls_config() -> ureq::tls::TlsConfig {
+    #[cfg(not(any(feature = "native-tls", feature = "rustls")))]
+    compile_error!("Either 'native-tls' or 'rustls' feature must be enabled");
+
     #[cfg(feature = "native-tls")]
-    {
-        ureq::tls::TlsConfig::builder()
-            .provider(ureq::tls::TlsProvider::NativeTls)
-            .build()
-    }
+    let provider = ureq::tls::TlsProvider::NativeTls;
 
     #[cfg(all(feature = "rustls", not(feature = "native-tls")))]
-    {
-        ureq::tls::TlsConfig::builder()
-            .provider(ureq::tls::TlsProvider::Rustls)
-            .build()
-    }
+    let provider = ureq::tls::TlsProvider::Rustls;
 
-    #[cfg(not(any(feature = "native-tls", feature = "rustls")))]
-    {
-        compile_error!("Either 'native-tls' or 'rustls' feature must be enabled");
-    }
+    ureq::tls::TlsConfig::builder().provider(provider).build()
 }
 
 /// Convenience function to check for updates with default settings.
