@@ -243,19 +243,59 @@ impl UpdateChecker {
             .read_to_string()
             .map_err(|e| Error::HttpError(e.to_string()))?;
 
-        // Parse JSON minimally - look for "newest_version":"X.Y.Z"
-        let marker = r#""newest_version":""#;
-        let start = body
-            .find(marker)
-            .ok_or_else(|| Error::ParseError("newest_version not found".to_string()))?
-            + marker.len();
-        let end = body[start..]
-            .find('"')
-            .ok_or_else(|| Error::ParseError("version end quote not found".to_string()))?
-            + start;
-
-        Ok(body[start..end].to_string())
+        extract_newest_version(&body)
     }
+}
+
+/// Extract the `newest_version` field from a crates.io API response.
+///
+/// This function parses the JSON response without requiring a full JSON parser,
+/// handling various whitespace formats that the API might return.
+///
+/// # Errors
+///
+/// Returns an error if the response doesn't contain the expected fields.
+pub fn extract_newest_version(body: &str) -> Result<String, Error> {
+    // Find the "crate" object first to ensure we're in the right context
+    let crate_start = body
+        .find(r#""crate""#)
+        .ok_or_else(|| Error::ParseError("'crate' field not found in response".to_string()))?;
+
+    // Search from the crate field onward
+    let search_region = &body[crate_start..];
+
+    // Find "newest_version" within the crate object
+    let version_key = r#""newest_version""#;
+    let key_pos = search_region
+        .find(version_key)
+        .ok_or_else(|| Error::ParseError("'newest_version' field not found in response".to_string()))?;
+
+    // Move past the key
+    let after_key = &search_region[key_pos + version_key.len()..];
+
+    // Find the colon (handles optional whitespace)
+    let colon_pos = after_key
+        .find(':')
+        .ok_or_else(|| Error::ParseError("malformed JSON: missing colon after newest_version".to_string()))?;
+
+    // Move past the colon and any whitespace
+    let after_colon = &after_key[colon_pos + 1..];
+    let after_colon_trimmed = after_colon.trim_start();
+
+    // Find the opening quote
+    if !after_colon_trimmed.starts_with('"') {
+        return Err(Error::ParseError(
+            "malformed JSON: expected quote after newest_version colon".to_string(),
+        ));
+    }
+
+    // Extract the version string (everything until the closing quote)
+    let version_start = &after_colon_trimmed[1..];
+    let quote_end = version_start
+        .find('"')
+        .ok_or_else(|| Error::ParseError("malformed JSON: unclosed version string".to_string()))?;
+
+    Ok(version_start[..quote_end].to_string())
 }
 
 /// Build TLS configuration based on enabled features.
