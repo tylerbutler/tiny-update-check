@@ -35,7 +35,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+      - name: Get MSRV from Cargo.toml
+        id: msrv
+        run: |
+          MSRV=$(grep '^rust-version' Cargo.toml | cut -d'"' -f2)
+          echo "version=$MSRV" >> "$GITHUB_OUTPUT"
       - uses: ./.github/actions/setup-rust
         with:
-          toolchain: "1.85" # Keep in sync with Cargo.toml rust-version
+          toolchain: ${{ steps.msrv.outputs.version }}
       - run: cargo check --all-features
