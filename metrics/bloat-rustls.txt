@@ -1,0 +1,23 @@
+=== rustls ===
+ File  .text     Size Crate
+ 7.3%  30.3% 407.1KiB std
+ 5.9%  24.4% 328.9KiB rustls
+ 4.9%  20.3% 273.3KiB ring
+ 2.2%   9.1% 122.5KiB ureq
+ 1.3%   5.3%  71.5KiB [Unknown]
+ 0.8%   3.3%  44.3KiB webpki
+ 0.5%   1.9%  25.3KiB http
+ 0.4%   1.4%  19.5KiB tiny_update_check
+ 0.3%   1.2%  16.1KiB ureq_proto
+ 0.1%   0.4%   5.7KiB rustls_pki_types
+ 0.1%   0.4%   5.0KiB bytes
+ 0.1%   0.3%   3.9KiB semver
+ 0.1%   0.3%   3.6KiB httparse
+ 0.0%   0.2%   2.3KiB base64
+ 0.0%   0.1%   1.2KiB size_check_rustls
+ 0.0%   0.0%     650B getrandom
+ 0.0%   0.0%     327B __rustc
+ 0.0%   0.0%      50B untrusted
+24.2% 100.0%   1.3MiB .text section size, the file size is 5.4MiB
+
+Note: numbers above are a result of guesswork. They are not 100% correct and never will be.

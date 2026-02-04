@@ -125,23 +125,40 @@ changelog: generate-configs
 # Binary Size Commands (Linux only)
 # ============================================
 
+# Run cargo-bloat on examples, save to metrics/ (Linux only)
+[linux]
+bloat:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p metrics
+    echo "=== native-tls ===" | tee metrics/bloat-native-tls.txt
+    cargo bloat --release --example size_check --crates | tee -a metrics/bloat-native-tls.txt
+    echo ""
+    echo "=== rustls ===" | tee metrics/bloat-rustls.txt
+    cargo bloat --release --example size_check_rustls --no-default-features --features rustls --crates | tee -a metrics/bloat-rustls.txt
+
 # Record release binary size to metrics/binary-size.txt
 [linux]
 record-size:
     #!/usr/bin/env bash
     set -euo pipefail
-    BINARY="target/release/tiny-update-check"
-    if [ ! -f "$BINARY" ]; then
-        echo "Release binary not found. Run 'just build-release' first."
-        exit 1
-    fi
+    cargo build --release --example size_check
+    cargo build --release --example size_check_rustls --no-default-features --features rustls
     VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
-    SIZE=$(stat --format="%s" "$BINARY")
-    HUMAN=$(numfmt --to=iec --suffix=B "$SIZE")
     DATE=$(date +%Y-%m-%d)
     mkdir -p metrics
-    echo "$DATE v$VERSION $SIZE $HUMAN" >> metrics/binary-size.txt
-    echo "Recorded: $DATE v$VERSION $SIZE ($HUMAN)"
+
+    # native-tls
+    SIZE=$(stat --format="%s" "target/release/examples/size_check")
+    HUMAN=$(numfmt --to=iec --suffix=B "$SIZE")
+    echo "$DATE v$VERSION native-tls $SIZE $HUMAN" >> metrics/binary-size.txt
+    echo "Recorded: $DATE v$VERSION native-tls $SIZE ($HUMAN)"
+
+    # rustls
+    SIZE=$(stat --format="%s" "target/release/examples/size_check_rustls")
+    HUMAN=$(numfmt --to=iec --suffix=B "$SIZE")
+    echo "$DATE v$VERSION rustls $SIZE $HUMAN" >> metrics/binary-size.txt
+    echo "Recorded: $DATE v$VERSION rustls $SIZE ($HUMAN)"
 
 # ============================================
 # Watch Commands
