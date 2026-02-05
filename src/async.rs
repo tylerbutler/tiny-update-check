@@ -19,6 +19,8 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
+#[cfg(feature = "do-not-track")]
+use crate::do_not_track_enabled;
 use crate::{Error, UpdateInfo, extract_newest_version, validate_crate_name};
 
 /// An async update checker for crates.io.
@@ -80,9 +82,15 @@ impl UpdateChecker {
     /// Check for updates asynchronously.
     ///
     /// Returns `Ok(Some(UpdateInfo))` if a newer version is available,
-    /// `Ok(None)` if already on the latest version,
+    /// `Ok(None)` if already on the latest version (or if `DO_NOT_TRACK=1` is set
+    /// and the `do-not-track` feature is enabled),
     /// or `Err` if the check failed.
     pub async fn check(&self) -> Result<Option<UpdateInfo>, Error> {
+        #[cfg(feature = "do-not-track")]
+        if do_not_track_enabled() {
+            return Ok(None);
+        }
+
         validate_crate_name(&self.crate_name)?;
         let latest = self.get_latest_version().await?;
 

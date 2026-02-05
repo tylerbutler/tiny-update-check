@@ -43,6 +43,22 @@
 //! - `native-tls` (default): Uses system TLS, smaller binary size
 //! - `rustls`: Pure Rust TLS, better for cross-compilation
 //! - `async`: Enables async support using `reqwest`
+//! - `do-not-track` (default): Respects [`DO_NOT_TRACK`] environment variable
+//!
+//! ## `DO_NOT_TRACK` Support
+//!
+//! When the `do-not-track` feature is enabled (default), the checker respects
+//! the [`DO_NOT_TRACK`] environment variable standard. If `DO_NOT_TRACK=1` is set,
+//! update checks will return `Ok(None)` without making network requests.
+//!
+//! To disable `DO_NOT_TRACK` support, disable the feature at compile time:
+//!
+//! ```toml
+//! [dependencies]
+//! tiny-update-check = { version = "0.1", default-features = false, features = ["native-tls"] }
+//! ```
+//!
+//! [`DO_NOT_TRACK`]: https://consoledonottrack.com/
 
 /// Async update checking module (requires `async` feature).
 ///
@@ -174,7 +190,8 @@ impl UpdateChecker {
     /// Check for updates.
     ///
     /// Returns `Ok(Some(UpdateInfo))` if a newer version is available,
-    /// `Ok(None)` if already on the latest version,
+    /// `Ok(None)` if already on the latest version (or if `DO_NOT_TRACK=1` is set
+    /// and the `do-not-track` feature is enabled),
     /// or `Err` if the check failed.
     ///
     /// # Errors
@@ -182,6 +199,11 @@ impl UpdateChecker {
     /// Returns an error if the crate name is invalid, the HTTP request fails,
     /// the response cannot be parsed, or version comparison fails.
     pub fn check(&self) -> Result<Option<UpdateInfo>, Error> {
+        #[cfg(feature = "do-not-track")]
+        if do_not_track_enabled() {
+            return Ok(None);
+        }
+
         validate_crate_name(&self.crate_name)?;
         let latest = self.get_latest_version()?;
 
@@ -321,6 +343,16 @@ pub(crate) fn extract_newest_version(body: &str) -> Result<String, Error> {
         .ok_or_else(|| Error::ParseError("malformed JSON: unclosed version string".to_string()))?;
 
     Ok(version_start[..quote_end].to_string())
+}
+
+/// Check if the `DO_NOT_TRACK` environment variable is set to a truthy value.
+///
+/// Returns `true` if `DO_NOT_TRACK` is set to `1` or `true` (case-insensitive).
+#[cfg(feature = "do-not-track")]
+pub(crate) fn do_not_track_enabled() -> bool {
+    std::env::var("DO_NOT_TRACK")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
 }
 
 /// Validate a crate name according to Cargo's rules.
@@ -526,5 +558,52 @@ mod tests {
     fn fails_on_malformed_json() {
         let result = extract_newest_version("not json at all");
         assert!(result.is_err());
+    }
+
+    // DO_NOT_TRACK tests
+    #[cfg(feature = "do-not-track")]
+    mod do_not_track_tests {
+        use super::*;
+
+        #[test]
+        fn do_not_track_detects_1() {
+            temp_env::with_var("DO_NOT_TRACK", Some("1"), || {
+                assert!(do_not_track_enabled());
+            });
+        }
+
+        #[test]
+        fn do_not_track_detects_true() {
+            temp_env::with_var("DO_NOT_TRACK", Some("true"), || {
+                assert!(do_not_track_enabled());
+            });
+        }
+
+        #[test]
+        fn do_not_track_detects_true_case_insensitive() {
+            temp_env::with_var("DO_NOT_TRACK", Some("TRUE"), || {
+                assert!(do_not_track_enabled());
+            });
+        }
+
+        #[test]
+        fn do_not_track_ignores_other_values() {
+            temp_env::with_var("DO_NOT_TRACK", Some("0"), || {
+                assert!(!do_not_track_enabled());
+            });
+            temp_env::with_var("DO_NOT_TRACK", Some("false"), || {
+                assert!(!do_not_track_enabled());
+            });
+            temp_env::with_var("DO_NOT_TRACK", Some("yes"), || {
+                assert!(!do_not_track_enabled());
+            });
+        }
+
+        #[test]
+        fn do_not_track_disabled_when_unset() {
+            temp_env::with_var("DO_NOT_TRACK", None::<&str>, || {
+                assert!(!do_not_track_enabled());
+            });
+        }
     }
 }
