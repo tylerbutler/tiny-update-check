@@ -42,6 +42,13 @@
 //!
 //! - `native-tls` (default): Uses system TLS, smaller binary size
 //! - `rustls`: Pure Rust TLS, better for cross-compilation
+//! - `async`: Enables async support using `reqwest`
+
+/// Async update checking module (requires `async` feature).
+///
+/// This module provides async versions of the update checker using `reqwest`.
+#[cfg(feature = "async")]
+pub mod r#async;
 
 use std::fs;
 use std::path::PathBuf;
@@ -67,6 +74,8 @@ pub enum Error {
     VersionError(String),
     /// Cache I/O error.
     CacheError(String),
+    /// Invalid crate name provided.
+    InvalidCrateName(String),
 }
 
 impl std::fmt::Display for Error {
@@ -76,6 +85,7 @@ impl std::fmt::Display for Error {
             Self::ParseError(msg) => write!(f, "Parse error: {msg}"),
             Self::VersionError(msg) => write!(f, "Version error: {msg}"),
             Self::CacheError(msg) => write!(f, "Cache error: {msg}"),
+            Self::InvalidCrateName(msg) => write!(f, "Invalid crate name: {msg}"),
         }
     }
 }
@@ -103,6 +113,7 @@ pub struct UpdateChecker {
     cache_duration: Duration,
     timeout: Duration,
     cache_dir: Option<PathBuf>,
+    include_prerelease: bool,
 }
 
 impl UpdateChecker {
@@ -120,6 +131,7 @@ impl UpdateChecker {
             cache_duration: Duration::from_secs(24 * 60 * 60), // 24 hours
             timeout: Duration::from_secs(5),
             cache_dir: dirs::cache_dir(),
+            include_prerelease: false,
         }
     }
 
@@ -148,6 +160,17 @@ impl UpdateChecker {
         self
     }
 
+    /// Include pre-release versions in update checks. Defaults to `false`.
+    ///
+    /// When `false` (the default), versions like `2.0.0-alpha.1` or `2.0.0-beta`
+    /// will not be reported as available updates. Set to `true` to receive
+    /// notifications about pre-release versions.
+    #[must_use]
+    pub const fn include_prerelease(mut self, include: bool) -> Self {
+        self.include_prerelease = include;
+        self
+    }
+
     /// Check for updates.
     ///
     /// Returns `Ok(Some(UpdateInfo))` if a newer version is available,
@@ -156,15 +179,21 @@ impl UpdateChecker {
     ///
     /// # Errors
     ///
-    /// Returns an error if the HTTP request fails, the response cannot be parsed,
-    /// or version comparison fails.
+    /// Returns an error if the crate name is invalid, the HTTP request fails,
+    /// the response cannot be parsed, or version comparison fails.
     pub fn check(&self) -> Result<Option<UpdateInfo>, Error> {
+        validate_crate_name(&self.crate_name)?;
         let latest = self.get_latest_version()?;
 
         let current = semver::Version::parse(&self.current_version)
             .map_err(|e| Error::VersionError(format!("Invalid current version: {e}")))?;
         let latest_ver = semver::Version::parse(&latest)
             .map_err(|e| Error::VersionError(format!("Invalid latest version: {e}")))?;
+
+        // Filter out pre-release versions unless explicitly included
+        if !self.include_prerelease && !latest_ver.pre.is_empty() {
+            return Ok(None);
+        }
 
         if latest_ver > current {
             Ok(Some(UpdateInfo {
@@ -243,19 +272,94 @@ impl UpdateChecker {
             .read_to_string()
             .map_err(|e| Error::HttpError(e.to_string()))?;
 
-        // Parse JSON minimally - look for "newest_version":"X.Y.Z"
-        let marker = r#""newest_version":""#;
-        let start = body
-            .find(marker)
-            .ok_or_else(|| Error::ParseError("newest_version not found".to_string()))?
-            + marker.len();
-        let end = body[start..]
-            .find('"')
-            .ok_or_else(|| Error::ParseError("version end quote not found".to_string()))?
-            + start;
-
-        Ok(body[start..end].to_string())
+        extract_newest_version(&body)
     }
+}
+
+/// Extract the `newest_version` field from a crates.io API response.
+///
+/// This function parses the JSON response without requiring a full JSON parser,
+/// handling various whitespace formats that the API might return.
+pub(crate) fn extract_newest_version(body: &str) -> Result<String, Error> {
+    // Find the "crate" object first to ensure we're in the right context
+    let crate_start = body
+        .find(r#""crate""#)
+        .ok_or_else(|| Error::ParseError("'crate' field not found in response".to_string()))?;
+
+    // Search from the crate field onward
+    let search_region = &body[crate_start..];
+
+    // Find "newest_version" within the crate object
+    let version_key = r#""newest_version""#;
+    let key_pos = search_region.find(version_key).ok_or_else(|| {
+        Error::ParseError("'newest_version' field not found in response".to_string())
+    })?;
+
+    // Move past the key
+    let after_key = &search_region[key_pos + version_key.len()..];
+
+    // Find the colon (handles optional whitespace)
+    let colon_pos = after_key.find(':').ok_or_else(|| {
+        Error::ParseError("malformed JSON: missing colon after newest_version".to_string())
+    })?;
+
+    // Move past the colon and any whitespace
+    let after_colon = &after_key[colon_pos + 1..];
+    let after_colon_trimmed = after_colon.trim_start();
+
+    // Find the opening quote
+    if !after_colon_trimmed.starts_with('"') {
+        return Err(Error::ParseError(
+            "malformed JSON: expected quote after newest_version colon".to_string(),
+        ));
+    }
+
+    // Extract the version string (everything until the closing quote)
+    let version_start = &after_colon_trimmed[1..];
+    let quote_end = version_start
+        .find('"')
+        .ok_or_else(|| Error::ParseError("malformed JSON: unclosed version string".to_string()))?;
+
+    Ok(version_start[..quote_end].to_string())
+}
+
+/// Validate a crate name according to Cargo's rules.
+///
+/// Valid crate names must:
+/// - Be non-empty
+/// - Start with an ASCII alphabetic character
+/// - Contain only ASCII alphanumeric characters, `-`, or `_`
+/// - Be at most 64 characters long
+fn validate_crate_name(name: &str) -> Result<(), Error> {
+    if name.is_empty() {
+        return Err(Error::InvalidCrateName(
+            "crate name cannot be empty".to_string(),
+        ));
+    }
+
+    if name.len() > 64 {
+        return Err(Error::InvalidCrateName(format!(
+            "crate name exceeds 64 characters: {}",
+            name.len()
+        )));
+    }
+
+    let first_char = name.chars().next().unwrap(); // safe: checked non-empty
+    if !first_char.is_ascii_alphabetic() {
+        return Err(Error::InvalidCrateName(format!(
+            "crate name must start with a letter, found: '{first_char}'"
+        )));
+    }
+
+    for ch in name.chars() {
+        if !ch.is_ascii_alphanumeric() && ch != '-' && ch != '_' {
+            return Err(Error::InvalidCrateName(format!(
+                "invalid character in crate name: '{ch}'"
+            )));
+        }
+    }
+
+    Ok(())
 }
 
 /// Build TLS configuration based on enabled features.
@@ -335,5 +439,92 @@ mod tests {
 
         let err = Error::ParseError("invalid json".to_string());
         assert_eq!(err.to_string(), "Parse error: invalid json");
+
+        let err = Error::InvalidCrateName("empty".to_string());
+        assert_eq!(err.to_string(), "Invalid crate name: empty");
+    }
+
+    #[test]
+    fn test_include_prerelease_default() {
+        let checker = UpdateChecker::new("test-crate", "1.0.0");
+        assert!(!checker.include_prerelease);
+    }
+
+    #[test]
+    fn test_include_prerelease_enabled() {
+        let checker = UpdateChecker::new("test-crate", "1.0.0").include_prerelease(true);
+        assert!(checker.include_prerelease);
+    }
+
+    #[test]
+    fn test_include_prerelease_disabled() {
+        let checker = UpdateChecker::new("test-crate", "1.0.0").include_prerelease(false);
+        assert!(!checker.include_prerelease);
+    }
+
+    // Parsing tests (moved from tests/parsing.rs)
+    const REAL_RESPONSE: &str = include_str!("../tests/fixtures/serde_response.json");
+    const COMPACT_JSON: &str = include_str!("../tests/fixtures/compact.json");
+    const PRETTY_JSON: &str = include_str!("../tests/fixtures/pretty.json");
+    const SPACED_COLON: &str = include_str!("../tests/fixtures/spaced_colon.json");
+    const MISSING_CRATE: &str = include_str!("../tests/fixtures/missing_crate.json");
+    const MISSING_VERSION: &str = include_str!("../tests/fixtures/missing_version.json");
+
+    #[test]
+    fn parses_real_crates_io_response() {
+        let version = extract_newest_version(REAL_RESPONSE).unwrap();
+        assert_eq!(version, "1.0.228");
+    }
+
+    #[test]
+    fn parses_compact_json() {
+        let version = extract_newest_version(COMPACT_JSON).unwrap();
+        assert_eq!(version, "2.0.0");
+    }
+
+    #[test]
+    fn parses_pretty_json() {
+        let version = extract_newest_version(PRETTY_JSON).unwrap();
+        assert_eq!(version, "3.1.4");
+    }
+
+    #[test]
+    fn parses_whitespace_around_colon() {
+        let version = extract_newest_version(SPACED_COLON).unwrap();
+        assert_eq!(version, "1.2.3");
+    }
+
+    #[test]
+    fn fails_on_missing_crate_field() {
+        let result = extract_newest_version(MISSING_CRATE);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("crate"),
+            "Error should mention 'crate' field: {err}"
+        );
+    }
+
+    #[test]
+    fn fails_on_missing_newest_version() {
+        let result = extract_newest_version(MISSING_VERSION);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("newest_version"),
+            "Error should mention 'newest_version' field: {err}"
+        );
+    }
+
+    #[test]
+    fn fails_on_empty_input() {
+        let result = extract_newest_version("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn fails_on_malformed_json() {
+        let result = extract_newest_version("not json at all");
+        assert!(result.is_err());
     }
 }
