@@ -3,3 +3,5 @@
 # Auto-populated by: just record-size
 2026-02-03 v0.1.0 native-tls 914240 893KB
 2026-02-03 v0.1.0 rustls 1975064 1.9MB
+2026-02-06 v1.0.0 native-tls 918336 897KB
+2026-02-06 v1.0.0 rustls 1975064 1.9MB
