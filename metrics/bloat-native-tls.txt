@@ -1,13 +1,13 @@
 === native-tls ===
  File  .text     Size Crate
-12.5%  58.2% 320.5KiB std
+12.5%  58.5% 322.9KiB std
  4.9%  23.0% 126.9KiB ureq
  1.0%   4.6%  25.3KiB http
- 0.8%   3.5%  19.5KiB tiny_update_check
+ 0.7%   3.1%  17.4KiB tiny_update_check
  0.6%   2.9%  16.1KiB ureq_proto
  0.3%   1.4%   7.6KiB openssl
  0.2%   0.9%   5.0KiB bytes
- 0.2%   0.7%   3.9KiB semver
+ 0.2%   0.8%   4.6KiB semver
  0.1%   0.6%   3.6KiB httparse
  0.1%   0.6%   3.5KiB base64ct
  0.1%   0.6%   3.3KiB der
@@ -15,9 +15,9 @@
  0.1%   0.3%   1.6KiB openssl_probe
  0.1%   0.3%   1.5KiB [Unknown]
  0.0%   0.2%   1.3KiB once_cell
- 0.0%   0.2%   1.2KiB size_check
+ 0.0%   0.2%   1.3KiB size_check
  0.0%   0.1%     589B native_tls
  0.0%   0.0%     220B __rustc
-21.5% 100.0% 551.0KiB .text section size, the file size is 2.5MiB
+21.4% 100.0% 552.0KiB .text section size, the file size is 2.5MiB
 
 Note: numbers above are a result of guesswork. They are not 100% correct and never will be.
