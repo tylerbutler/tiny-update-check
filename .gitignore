@@ -22,3 +22,4 @@ Thumbs.db
 # Local configuration
 .env
 .env.local
+.claude/settings.local.json
