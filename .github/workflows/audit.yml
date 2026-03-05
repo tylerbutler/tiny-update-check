@@ -17,5 +17,8 @@ jobs:
           tools: cargo-audit,cargo-deny
       - name: Run cargo audit
         run: cargo audit
-      - name: Run cargo deny
-        run: cargo deny check
+      - name: Run cargo deny (advisories)
+        run: cargo deny check advisories
+        continue-on-error: true  # advisory DB may contain unsupported CVSS formats
+      - name: Run cargo deny (licenses, bans, sources)
+        run: cargo deny check licenses bans sources
