@@ -7,7 +7,7 @@
 //!
 //! ## Features
 //!
-//! - **Minimal dependencies**: Only `ureq` and `semver`
+//! - **Minimal dependencies**: Only `minreq` and `semver`
 //! - **Small binary impact**: ~0.5MB with `native-tls` (vs ~1.4MB for alternatives)
 //! - **Simple file-based caching**: Configurable cache duration (default: 24 hours)
 //! - **TLS flexibility**: Choose `native-tls` (default) or `rustls`
@@ -240,26 +240,20 @@ impl UpdateChecker {
     fn fetch_latest_version(&self) -> Result<String, Error> {
         let url = format!("https://crates.io/api/v1/crates/{}", self.crate_name);
 
-        let agent: ureq::Agent = ureq::Agent::config_builder()
-            .timeout_global(Some(self.timeout))
-            .user_agent(concat!(
-                env!("CARGO_PKG_NAME"),
-                "/",
-                env!("CARGO_PKG_VERSION")
-            ))
-            .tls_config(build_tls_config())
-            .build()
-            .into();
-
-        let body = agent
-            .get(&url)
-            .call()
-            .map_err(|e| Error::HttpError(e.to_string()))?
-            .into_body()
-            .read_to_string()
+        let response = minreq::get(&url)
+            .with_timeout(self.timeout.as_secs())
+            .with_header(
+                "User-Agent",
+                concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")),
+            )
+            .send()
             .map_err(|e| Error::HttpError(e.to_string()))?;
 
-        extract_newest_version(&body)
+        let body = response
+            .as_str()
+            .map_err(|e| Error::HttpError(e.to_string()))?;
+
+        extract_newest_version(body)
     }
 }
 
@@ -395,20 +389,6 @@ fn validate_crate_name(name: &str) -> Result<(), Error> {
     }
 
     Ok(())
-}
-
-/// Build TLS configuration based on enabled features.
-fn build_tls_config() -> ureq::tls::TlsConfig {
-    #[cfg(not(any(feature = "native-tls", feature = "rustls")))]
-    compile_error!("Either 'native-tls' or 'rustls' feature must be enabled");
-
-    #[cfg(feature = "native-tls")]
-    let provider = ureq::tls::TlsProvider::NativeTls;
-
-    #[cfg(all(feature = "rustls", not(feature = "native-tls")))]
-    let provider = ureq::tls::TlsProvider::Rustls;
-
-    ureq::tls::TlsConfig::builder().provider(provider).build()
 }
 
 /// Convenience function to check for updates with default settings.
