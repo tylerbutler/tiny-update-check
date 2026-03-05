@@ -7,11 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v0.1.0 - 2026-02-03
 
-#### Added
+### Added
 
-##### Initial implementation of tiny-update-check
+#### Initial implementation of tiny-update-check
 
-#### Fixed
+### Fixed
 
-##### Correct template leftovers and enhance release pipeline (#2)
+#### Correct template leftovers and enhance release pipeline (#2)
 
