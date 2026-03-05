@@ -21,7 +21,9 @@ use std::time::Duration;
 
 #[cfg(feature = "do-not-track")]
 use crate::do_not_track_enabled;
-use crate::{Error, UpdateInfo, extract_newest_version, validate_crate_name};
+use crate::{
+    Error, UpdateInfo, compare_versions, extract_newest_version, read_cache, validate_crate_name,
+};
 
 /// An async update checker for crates.io.
 ///
@@ -93,46 +95,23 @@ impl UpdateChecker {
 
         validate_crate_name(&self.crate_name)?;
         let latest = self.get_latest_version().await?;
-
-        let current = semver::Version::parse(&self.current_version)
-            .map_err(|e| Error::VersionError(format!("Invalid current version: {e}")))?;
-        let latest_ver = semver::Version::parse(&latest)
-            .map_err(|e| Error::VersionError(format!("Invalid latest version: {e}")))?;
-
-        if !self.include_prerelease && !latest_ver.pre.is_empty() {
-            return Ok(None);
-        }
-
-        if latest_ver > current {
-            Ok(Some(UpdateInfo {
-                current: self.current_version.clone(),
-                latest,
-            }))
-        } else {
-            Ok(None)
-        }
+        compare_versions(&self.current_version, latest, self.include_prerelease)
     }
 
     /// Get the latest version, using cache if available and fresh.
     async fn get_latest_version(&self) -> Result<String, Error> {
         use std::fs;
-        use std::time::SystemTime;
 
-        let cache_path = self.cache_path();
+        let path = self
+            .cache_dir
+            .as_ref()
+            .map(|d| d.join(format!("{}-update-check", self.crate_name)));
 
         // Check cache first
         if self.cache_duration > Duration::ZERO {
-            if let Some(ref path) = cache_path {
-                if let Ok(metadata) = fs::metadata(path) {
-                    if let Ok(modified) = metadata.modified() {
-                        if let Ok(age) = SystemTime::now().duration_since(modified) {
-                            if age < self.cache_duration {
-                                if let Ok(cached) = fs::read_to_string(path) {
-                                    return Ok(cached.trim().to_string());
-                                }
-                            }
-                        }
-                    }
+            if let Some(ref path) = path {
+                if let Some(cached) = read_cache(path, self.cache_duration) {
+                    return Ok(cached);
                 }
             }
         }
@@ -141,18 +120,11 @@ impl UpdateChecker {
         let latest = self.fetch_latest_version().await?;
 
         // Update cache
-        if let Some(ref path) = cache_path {
+        if let Some(ref path) = path {
             let _ = fs::write(path, &latest);
         }
 
         Ok(latest)
-    }
-
-    /// Get the cache file path.
-    fn cache_path(&self) -> Option<PathBuf> {
-        self.cache_dir
-            .as_ref()
-            .map(|d| d.join(format!("{}-update-check", self.crate_name)))
     }
 
     /// Fetch the latest version from crates.io asynchronously.
