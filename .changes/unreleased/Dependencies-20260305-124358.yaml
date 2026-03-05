@@ -1,6 +1,0 @@
-kind: Dependencies
-body: |-
-    Replace dirs with manual cache dir lookup
-
-    Replaced the `dirs` crate with ~10 lines of platform-specific code for cache directory detection. This removes `dirs` and its transitive dependencies (`dirs-sys`, `redox_users`, `libredox`, `getrandom` 0.2), eliminating the duplicate `getrandom` version warning.
-time: 2026-03-05T12:43:58.343312-08:00
