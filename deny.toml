@@ -11,9 +11,8 @@ allow = [
     "MIT",
     "Apache-2.0",
     "Apache-2.0 WITH LLVM-exception",
-    "MPL-2.0",
+    "ISC",
     "Unicode-3.0",
-    "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.8
 
@@ -21,10 +20,7 @@ confidence-threshold = 0.8
 multiple-versions = "warn"
 wildcards = "allow"
 highlight = "all"
-skip = [
-    { crate = "getrandom@0.2" },
-    { crate = "wit-bindgen@0.46" },
-]
+skip = []
 
 [sources]
 unknown-registry = "warn"
