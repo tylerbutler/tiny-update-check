@@ -146,7 +146,7 @@ impl UpdateChecker {
             current_version: current_version.into(),
             cache_duration: Duration::from_secs(24 * 60 * 60), // 24 hours
             timeout: Duration::from_secs(5),
-            cache_dir: dirs::cache_dir(),
+            cache_dir: cache_dir(),
             include_prerelease: false,
         }
     }
@@ -391,6 +391,34 @@ fn validate_crate_name(name: &str) -> Result<(), Error> {
     Ok(())
 }
 
+/// Returns the platform-specific user cache directory.
+///
+/// - **Linux**: `$XDG_CACHE_HOME` or `$HOME/.cache`
+/// - **macOS**: `$HOME/Library/Caches`
+/// - **Windows**: `%LOCALAPPDATA%`
+pub(crate) fn cache_dir() -> Option<PathBuf> {
+    #[cfg(target_os = "macos")]
+    {
+        std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Caches"))
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        std::env::var_os("XDG_CACHE_HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::env::var_os("LOCALAPPDATA").map(PathBuf::from)
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    {
+        None
+    }
+}
 /// Convenience function to check for updates with default settings.
 ///
 /// # Example

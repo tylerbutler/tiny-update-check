@@ -1,0 +1,63 @@
+name: Changie Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # ratchet:actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: tylerbutler/actions/changie-release@231702af96884c81aba2e69d60ed8ed7d23da69b # ratchet:tylerbutler/actions/changie-release@main
+        id: release
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          version-files: 'Cargo.toml:version'
+
+      # Update Cargo.lock to match the version bumped by changie-release
+      - name: Update Cargo.lock
+        if: steps.release.outputs.skipped != 'true'
+        env:
+          PR_BRANCH: ${{ steps.release.outputs.pr-branch }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout "$PR_BRANCH"
+          cargo generate-lockfile
+          git add Cargo.lock
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update Cargo.lock"
+            git push origin "$PR_BRANCH"
+          fi
+
+      - name: Summary
+        if: steps.release.outputs.skipped != 'true'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          PR_URL: ${{ steps.release.outputs.pr-url }}
+          PR_OP: ${{ steps.release.outputs.pr-operation }}
+        run: |
+          echo "### Release PR Created" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Version:** $VERSION" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **PR:** $PR_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Operation:** $PR_OP" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Skipped
+        if: steps.release.outputs.skipped == 'true'
+        run: |
+          echo "### Release Skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "No unreleased change fragments found." >> "$GITHUB_STEP_SUMMARY"

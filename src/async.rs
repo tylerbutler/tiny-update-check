@@ -48,7 +48,7 @@ impl UpdateChecker {
             current_version: current_version.into(),
             cache_duration: Duration::from_secs(24 * 60 * 60),
             timeout: Duration::from_secs(5),
-            cache_dir: dirs::cache_dir(),
+            cache_dir: crate::cache_dir(),
             include_prerelease: false,
         }
     }
