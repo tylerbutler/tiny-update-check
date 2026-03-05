@@ -19,4 +19,3 @@ jobs:
         run: cargo audit
       - name: Run cargo deny
         run: cargo deny check
-        continue-on-error: true  # cargo-deny may fail on newer CVSS formats
