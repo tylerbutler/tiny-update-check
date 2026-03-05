@@ -1,0 +1,6 @@
+kind: Dependencies
+body: |-
+    Replace ureq with minreq
+
+    Replaced `ureq` HTTP client with `minreq` for a significantly smaller dependency tree. `minreq` is designed for simple blocking HTTP requests, aligning with the crate's "tiny" philosophy. Both `native-tls` and `rustls` feature flags are preserved.
+time: 2026-03-05T12:43:59.047453-08:00

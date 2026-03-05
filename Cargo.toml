@@ -15,13 +15,13 @@ readme = "README.md"
 
 [dependencies]
 semver = "1"
-ureq = { version = "3", default-features = false }
+minreq = { version = "2", default-features = false }
 reqwest = { version = "0.12", optional = true, default-features = false, features = ["rustls-tls"] }
 
 [features]
 default = ["native-tls", "do-not-track"]
-native-tls = ["ureq/native-tls"]
-rustls = ["ureq/rustls"]
+native-tls = ["minreq/native-tls"]
+rustls = ["minreq/rustls"]
 async = ["reqwest"]
 do-not-track = []
 
