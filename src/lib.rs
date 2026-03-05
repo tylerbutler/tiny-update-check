@@ -206,35 +206,20 @@ impl UpdateChecker {
 
         validate_crate_name(&self.crate_name)?;
         let latest = self.get_latest_version()?;
-
-        let current = semver::Version::parse(&self.current_version)
-            .map_err(|e| Error::VersionError(format!("Invalid current version: {e}")))?;
-        let latest_ver = semver::Version::parse(&latest)
-            .map_err(|e| Error::VersionError(format!("Invalid latest version: {e}")))?;
-
-        // Filter out pre-release versions unless explicitly included
-        if !self.include_prerelease && !latest_ver.pre.is_empty() {
-            return Ok(None);
-        }
-
-        if latest_ver > current {
-            Ok(Some(UpdateInfo {
-                current: self.current_version.clone(),
-                latest,
-            }))
-        } else {
-            Ok(None)
-        }
+        compare_versions(&self.current_version, latest, self.include_prerelease)
     }
 
     /// Get the latest version, using cache if available and fresh.
     fn get_latest_version(&self) -> Result<String, Error> {
-        let cache_path = self.cache_path();
+        let path = self
+            .cache_dir
+            .as_ref()
+            .map(|d| d.join(format!("{}-update-check", self.crate_name)));
 
         // Check cache first
         if self.cache_duration > Duration::ZERO {
-            if let Some(ref path) = cache_path {
-                if let Some(cached) = self.read_cache(path) {
+            if let Some(ref path) = path {
+                if let Some(cached) = read_cache(path, self.cache_duration) {
                     return Ok(cached);
                 }
             }
@@ -244,31 +229,11 @@ impl UpdateChecker {
         let latest = self.fetch_latest_version()?;
 
         // Update cache
-        if let Some(ref path) = cache_path {
+        if let Some(ref path) = path {
             let _ = fs::write(path, &latest);
         }
 
         Ok(latest)
-    }
-
-    /// Get the cache file path.
-    fn cache_path(&self) -> Option<PathBuf> {
-        self.cache_dir
-            .as_ref()
-            .map(|d| d.join(format!("{}-update-check", self.crate_name)))
-    }
-
-    /// Read from cache if it exists and is fresh.
-    fn read_cache(&self, path: &std::path::Path) -> Option<String> {
-        let metadata = fs::metadata(path).ok()?;
-        let modified = metadata.modified().ok()?;
-        let age = SystemTime::now().duration_since(modified).ok()?;
-
-        if age < self.cache_duration {
-            fs::read_to_string(path).ok().map(|s| s.trim().to_string())
-        } else {
-            None
-        }
     }
 
     /// Fetch the latest version from crates.io.
@@ -295,6 +260,44 @@ impl UpdateChecker {
             .map_err(|e| Error::HttpError(e.to_string()))?;
 
         extract_newest_version(&body)
+    }
+}
+
+/// Compare current and latest versions, returning `UpdateInfo` if an update is available.
+pub(crate) fn compare_versions(
+    current_version: &str,
+    latest: String,
+    include_prerelease: bool,
+) -> Result<Option<UpdateInfo>, Error> {
+    let current = semver::Version::parse(current_version)
+        .map_err(|e| Error::VersionError(format!("Invalid current version: {e}")))?;
+    let latest_ver = semver::Version::parse(&latest)
+        .map_err(|e| Error::VersionError(format!("Invalid latest version: {e}")))?;
+
+    if !include_prerelease && !latest_ver.pre.is_empty() {
+        return Ok(None);
+    }
+
+    if latest_ver > current {
+        Ok(Some(UpdateInfo {
+            current: current_version.to_string(),
+            latest,
+        }))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Read from cache if it exists and is fresh.
+pub(crate) fn read_cache(path: &std::path::Path, cache_duration: Duration) -> Option<String> {
+    let metadata = fs::metadata(path).ok()?;
+    let modified = metadata.modified().ok()?;
+    let age = SystemTime::now().duration_since(modified).ok()?;
+
+    if age < cache_duration {
+        fs::read_to_string(path).ok().map(|s| s.trim().to_string())
+    } else {
+        None
     }
 }
 
