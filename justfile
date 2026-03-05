@@ -12,9 +12,7 @@ alias a := audit
 alias c := check
 alias tc := test-coverage
 alias d := docs
-alias gc := generate-configs
-alias cc := check-configs
-alias cl := changelog
+alias cl := change
 
 export RUST_BACKTRACE := "1"
 
@@ -105,21 +103,16 @@ docs-open: docs
     cargo doc --no-deps --all-features --open
 
 # ============================================
-# Changelog & Config Commands
+# Changelog Commands
 # ============================================
 
-# Regenerate all configs from commit-types.json
-generate-configs:
-    python3 scripts/generate-cliff-configs.py
-    python3 scripts/generate-commitlint-config.py
+# Create a new changelog entry
+change:
+    changie new
 
-# Check that generated configs are in sync
-check-configs:
-    python3 scripts/check-configs-sync.py
-
-# Generate changelog
-changelog: generate-configs
-    git-cliff -o CHANGELOG.md
+# Preview the next version changelog
+changelog-preview:
+    changie batch auto --dry-run
 
 # ============================================
 # Binary Size Commands (Linux only)
@@ -177,10 +170,10 @@ watch-lint:
 # ============================================
 
 # Run all CI checks locally
-ci: fmt-check lint check-configs test audit build
+ci: fmt-check lint test audit build
 
 # PR checks (mimics CI workflow)
-pr: fmt-check lint check-configs test-coverage audit build
+pr: fmt-check lint test-coverage audit build
 
 # ============================================
 # Utility Commands

@@ -74,27 +74,13 @@ jobs:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
-      - name: Install git-cliff
-        if: steps.release-plz.outputs.prs_created == 'true'
-        uses: taiki-e/install-action@509565405a8a987e73cf742e26b26dcc72c4b01a # ratchet:taiki-e/install-action@v2
-        with:
-          tool: git-cliff
-
-      - name: Generate changelog with git-cliff
+      - name: Checkout PR branch
         if: steps.release-plz.outputs.prs_created == 'true'
         env:
           PR_HEAD_BRANCH: ${{ fromJson(steps.release-plz.outputs.pr).head_branch }}
         run: |
-          # Checkout the PR branch
           git fetch origin "$PR_HEAD_BRANCH"
           git checkout "$PR_HEAD_BRANCH"
-
-          # Extract version from Cargo.toml (release-plz already bumped it)
-          VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
-          echo "Generating changelog for version: $VERSION"
-
-          # Generate changelog with the release version (avoids "unreleased" header)
-          git cliff --tag "v$VERSION" -o CHANGELOG.md
 
       - name: Install cargo-bloat
         if: steps.release-plz.outputs.prs_created == 'true'
@@ -184,7 +170,7 @@ jobs:
           # Set overall changed flag
           echo "changed=$( [ "$DIFF_NATIVE" -ne 0 ] || [ "$DIFF_RUSTLS" -ne 0 ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
 
-      - name: Commit changelog and metrics updates
+      - name: Commit metrics updates
         if: steps.release-plz.outputs.prs_created == 'true'
         env:
           PR_HEAD_BRANCH: ${{ fromJson(steps.release-plz.outputs.pr).head_branch }}
@@ -192,14 +178,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Stage changelog and metrics
-          git add CHANGELOG.md metrics/
+          # Stage metrics
+          git add metrics/
 
           # Check if there are changes to commit
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: update changelog and binary size metrics"
+            git commit -m "chore: update binary size metrics"
             git push origin "$PR_HEAD_BRANCH"
           fi
 
