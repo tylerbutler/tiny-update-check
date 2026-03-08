@@ -89,6 +89,43 @@ let checker = UpdateChecker::new("my-crate", "1.0.0")
 
 - `native-tls` (default) - Uses system TLS libraries, smaller binary
 - `rustls` - Pure Rust TLS, no system dependencies
+- `async` - Async support using `reqwest`
+- `do-not-track` (default) - Respects the `DO_NOT_TRACK` environment variable
+- `response-body` - Includes the raw crates.io response body in `UpdateInfo`
+
+### Update Messages
+
+You can attach a message to update notifications by hosting a plain text file
+at a URL:
+
+```rust
+use tiny_update_check::UpdateChecker;
+
+let checker = UpdateChecker::new("my-crate", "1.0.0")
+    .message_url("https://example.com/my-crate-update-message.txt");
+
+if let Ok(Some(update)) = checker.check() {
+    eprintln!("Update available: {} -> {}", update.current, update.latest);
+    if let Some(msg) = &update.message {
+        eprintln!("{msg}");
+    }
+}
+```
+
+The message is fetched only when an update is available. If the fetch fails, the
+update check still succeeds with `message` set to `None`.
+
+### Raw Response Body
+
+Enable the `response-body` feature to access the full crates.io API response:
+
+```toml
+[dependencies]
+tiny-update-check = { version = "1", features = ["response-body"] }
+```
+
+This adds a `response_body: Option<String>` field to `UpdateInfo`, letting you
+extract any field from the crates.io response using your own parsing logic.
 
 ## How It Works
 

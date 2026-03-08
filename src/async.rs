@@ -37,6 +37,7 @@ pub struct UpdateChecker {
     timeout: Duration,
     cache_dir: Option<PathBuf>,
     include_prerelease: bool,
+    message_url: Option<String>,
 }
 
 impl UpdateChecker {
@@ -50,6 +51,7 @@ impl UpdateChecker {
             timeout: Duration::from_secs(5),
             cache_dir: crate::cache_dir(),
             include_prerelease: false,
+            message_url: None,
         }
     }
 
@@ -81,6 +83,20 @@ impl UpdateChecker {
         self
     }
 
+    /// Set a URL to fetch an update message from.
+    ///
+    /// When an update is available, the checker will make a separate HTTP request
+    /// to this URL and include the response as [`UpdateInfo::message`]. The URL
+    /// should serve plain text.
+    ///
+    /// The fetch is best-effort: if it fails, the update check still succeeds
+    /// with `message` set to `None`. The message is trimmed and truncated to 4KB.
+    #[must_use]
+    pub fn message_url(mut self, url: impl Into<String>) -> Self {
+        self.message_url = Some(url.into());
+        self
+    }
+
     /// Check for updates asynchronously.
     ///
     /// Returns `Ok(Some(UpdateInfo))` if a newer version is available,
@@ -94,12 +110,25 @@ impl UpdateChecker {
         }
 
         validate_crate_name(&self.crate_name)?;
-        let latest = self.get_latest_version().await?;
-        compare_versions(&self.current_version, latest, self.include_prerelease)
+        #[allow(unused_variables)]
+        let (latest, response_body) = self.get_latest_version().await?;
+        let mut update = compare_versions(&self.current_version, latest, self.include_prerelease)?;
+
+        if let Some(ref mut info) = update {
+            if let Some(ref url) = self.message_url {
+                info.message = self.fetch_message(url).await;
+            }
+            #[cfg(feature = "response-body")]
+            {
+                info.response_body = response_body;
+            }
+        }
+
+        Ok(update)
     }
 
     /// Get the latest version, using cache if available and fresh.
-    async fn get_latest_version(&self) -> Result<String, Error> {
+    async fn get_latest_version(&self) -> Result<(String, Option<String>), Error> {
         use std::fs;
 
         let path = self
@@ -111,24 +140,24 @@ impl UpdateChecker {
         if self.cache_duration > Duration::ZERO {
             if let Some(ref path) = path {
                 if let Some(cached) = read_cache(path, self.cache_duration) {
-                    return Ok(cached);
+                    return Ok((cached, None));
                 }
             }
         }
 
         // Fetch from crates.io
-        let latest = self.fetch_latest_version().await?;
+        let (latest, response_body) = self.fetch_latest_version().await?;
 
         // Update cache
         if let Some(ref path) = path {
             let _ = fs::write(path, &latest);
         }
 
-        Ok(latest)
+        Ok((latest, response_body))
     }
 
     /// Fetch the latest version from crates.io asynchronously.
-    async fn fetch_latest_version(&self) -> Result<String, Error> {
+    async fn fetch_latest_version(&self) -> Result<(String, Option<String>), Error> {
         let url = format!("https://crates.io/api/v1/crates/{}", self.crate_name);
 
         let client = reqwest::Client::builder()
@@ -150,7 +179,47 @@ impl UpdateChecker {
             .await
             .map_err(|e| Error::HttpError(e.to_string()))?;
 
-        extract_newest_version(&body)
+        let version = extract_newest_version(&body)?;
+
+        #[cfg(feature = "response-body")]
+        return Ok((version, Some(body)));
+
+        #[cfg(not(feature = "response-body"))]
+        Ok((version, None))
+    }
+
+    /// Fetch a plain text message from the configured URL.
+    ///
+    /// Best-effort: returns `None` on any failure.
+    async fn fetch_message(&self, url: &str) -> Option<String> {
+        const MAX_MESSAGE_SIZE: usize = 4096;
+
+        let client = reqwest::Client::builder()
+            .timeout(self.timeout)
+            .user_agent(concat!(
+                env!("CARGO_PKG_NAME"),
+                "/",
+                env!("CARGO_PKG_VERSION")
+            ))
+            .build()
+            .ok()?;
+
+        let body = client.get(url).send().await.ok()?.text().await.ok()?;
+        let trimmed = body.trim();
+
+        if trimmed.is_empty() {
+            return None;
+        }
+
+        if trimmed.len() > MAX_MESSAGE_SIZE {
+            let mut end = MAX_MESSAGE_SIZE;
+            while !trimmed.is_char_boundary(end) {
+                end -= 1;
+            }
+            Some(trimmed[..end].to_string())
+        } else {
+            Some(trimmed.to_string())
+        }
     }
 }
 

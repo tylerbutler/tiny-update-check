@@ -24,6 +24,7 @@ native-tls = ["minreq/native-tls"]
 rustls = ["minreq/rustls"]
 async = ["reqwest"]
 do-not-track = []
+response-body = []
 
 [dev-dependencies]
 temp-env = "0.3"
