@@ -22,7 +22,8 @@ use std::time::Duration;
 #[cfg(feature = "do-not-track")]
 use crate::do_not_track_enabled;
 use crate::{
-    Error, UpdateInfo, compare_versions, extract_newest_version, read_cache, validate_crate_name,
+    Error, USER_AGENT, UpdateInfo, compare_versions, extract_newest_version, read_cache,
+    truncate_message, validate_crate_name,
 };
 
 /// An async update checker for crates.io.
@@ -110,13 +111,23 @@ impl UpdateChecker {
         }
 
         validate_crate_name(&self.crate_name)?;
-        #[allow(unused_variables)]
-        let (latest, response_body) = self.get_latest_version().await?;
+
+        let client = reqwest::Client::builder()
+            .timeout(self.timeout)
+            .user_agent(USER_AGENT)
+            .build()
+            .map_err(|e| Error::HttpError(e.to_string()))?;
+
+        #[cfg(feature = "response-body")]
+        let (latest, response_body) = self.get_latest_version(&client).await?;
+        #[cfg(not(feature = "response-body"))]
+        let (latest, _) = self.get_latest_version(&client).await?;
+
         let mut update = compare_versions(&self.current_version, latest, self.include_prerelease)?;
 
         if let Some(ref mut info) = update {
             if let Some(ref url) = self.message_url {
-                info.message = self.fetch_message(url).await;
+                info.message = Self::fetch_message(&client, url).await;
             }
             #[cfg(feature = "response-body")]
             {
@@ -128,7 +139,10 @@ impl UpdateChecker {
     }
 
     /// Get the latest version, using cache if available and fresh.
-    async fn get_latest_version(&self) -> Result<(String, Option<String>), Error> {
+    async fn get_latest_version(
+        &self,
+        client: &reqwest::Client,
+    ) -> Result<(String, Option<String>), Error> {
         use std::fs;
 
         let path = self
@@ -146,7 +160,7 @@ impl UpdateChecker {
         }
 
         // Fetch from crates.io
-        let (latest, response_body) = self.fetch_latest_version().await?;
+        let (latest, response_body) = self.fetch_latest_version(client).await?;
 
         // Update cache
         if let Some(ref path) = path {
@@ -157,18 +171,11 @@ impl UpdateChecker {
     }
 
     /// Fetch the latest version from crates.io asynchronously.
-    async fn fetch_latest_version(&self) -> Result<(String, Option<String>), Error> {
+    async fn fetch_latest_version(
+        &self,
+        client: &reqwest::Client,
+    ) -> Result<(String, Option<String>), Error> {
         let url = format!("https://crates.io/api/v1/crates/{}", self.crate_name);
-
-        let client = reqwest::Client::builder()
-            .timeout(self.timeout)
-            .user_agent(concat!(
-                env!("CARGO_PKG_NAME"),
-                "/",
-                env!("CARGO_PKG_VERSION")
-            ))
-            .build()
-            .map_err(|e| Error::HttpError(e.to_string()))?;
 
         let body = client
             .get(&url)
@@ -191,35 +198,9 @@ impl UpdateChecker {
     /// Fetch a plain text message from the configured URL.
     ///
     /// Best-effort: returns `None` on any failure.
-    async fn fetch_message(&self, url: &str) -> Option<String> {
-        const MAX_MESSAGE_SIZE: usize = 4096;
-
-        let client = reqwest::Client::builder()
-            .timeout(self.timeout)
-            .user_agent(concat!(
-                env!("CARGO_PKG_NAME"),
-                "/",
-                env!("CARGO_PKG_VERSION")
-            ))
-            .build()
-            .ok()?;
-
+    async fn fetch_message(client: &reqwest::Client, url: &str) -> Option<String> {
         let body = client.get(url).send().await.ok()?.text().await.ok()?;
-        let trimmed = body.trim();
-
-        if trimmed.is_empty() {
-            return None;
-        }
-
-        if trimmed.len() > MAX_MESSAGE_SIZE {
-            let mut end = MAX_MESSAGE_SIZE;
-            while !trimmed.is_char_boundary(end) {
-                end -= 1;
-            }
-            Some(trimmed[..end].to_string())
-        } else {
-            Some(trimmed.to_string())
-        }
+        truncate_message(&body)
     }
 }
 

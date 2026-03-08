@@ -90,6 +90,30 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
+pub(crate) const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
+
+const MAX_MESSAGE_SIZE: usize = 4096;
+
+/// Trim and truncate a message body to at most [`MAX_MESSAGE_SIZE`] bytes,
+/// splitting on a valid UTF-8 char boundary.
+///
+/// Returns `None` if the input is empty or whitespace-only.
+pub(crate) fn truncate_message(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if trimmed.len() > MAX_MESSAGE_SIZE {
+        let mut end = MAX_MESSAGE_SIZE;
+        while !trimmed.is_char_boundary(end) {
+            end -= 1;
+        }
+        Some(trimmed[..end].to_string())
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
 /// Information about an available update.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpdateInfo {
@@ -256,8 +280,11 @@ impl UpdateChecker {
         }
 
         validate_crate_name(&self.crate_name)?;
-        #[allow(unused_variables)]
+        #[cfg(feature = "response-body")]
         let (latest, response_body) = self.get_latest_version()?;
+        #[cfg(not(feature = "response-body"))]
+        let (latest, _) = self.get_latest_version()?;
+
         let mut update = compare_versions(&self.current_version, latest, self.include_prerelease)?;
 
         if let Some(ref mut info) = update {
@@ -306,10 +333,7 @@ impl UpdateChecker {
 
         let response = minreq::get(&url)
             .with_timeout(self.timeout.as_secs())
-            .with_header(
-                "User-Agent",
-                concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")),
-            )
+            .with_header("User-Agent", USER_AGENT)
             .send()
             .map_err(|e| Error::HttpError(e.to_string()))?;
 
@@ -330,33 +354,14 @@ impl UpdateChecker {
     ///
     /// Best-effort: returns `None` on any failure.
     fn fetch_message(&self, url: &str) -> Option<String> {
-        const MAX_MESSAGE_SIZE: usize = 4096;
-
         let response = minreq::get(url)
             .with_timeout(self.timeout.as_secs())
-            .with_header(
-                "User-Agent",
-                concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")),
-            )
+            .with_header("User-Agent", USER_AGENT)
             .send()
             .ok()?;
 
         let body = response.as_str().ok()?;
-        let trimmed = body.trim();
-
-        if trimmed.is_empty() {
-            return None;
-        }
-
-        if trimmed.len() > MAX_MESSAGE_SIZE {
-            let mut end = MAX_MESSAGE_SIZE;
-            while !trimmed.is_char_boundary(end) {
-                end -= 1;
-            }
-            Some(trimmed[..end].to_string())
-        } else {
-            Some(trimmed.to_string())
-        }
+        truncate_message(body)
     }
 }
 
@@ -787,5 +792,59 @@ mod tests {
             response_body: Some("{\"crate\":{}}".to_string()),
         };
         assert_eq!(info.response_body.as_deref(), Some("{\"crate\":{}}"));
+    }
+
+    #[test]
+    fn test_truncate_message_empty() {
+        assert_eq!(truncate_message(""), None);
+    }
+
+    #[test]
+    fn test_truncate_message_whitespace_only() {
+        assert_eq!(truncate_message("   \n\t  "), None);
+    }
+
+    #[test]
+    fn test_truncate_message_ascii_within_limit() {
+        assert_eq!(
+            truncate_message("hello world"),
+            Some("hello world".to_string())
+        );
+    }
+
+    #[test]
+    fn test_truncate_message_trims_whitespace() {
+        assert_eq!(
+            truncate_message("  hello world  \n"),
+            Some("hello world".to_string())
+        );
+    }
+
+    #[test]
+    fn test_truncate_message_exactly_at_limit() {
+        let msg = "a".repeat(4096);
+        let result = truncate_message(&msg).unwrap();
+        assert_eq!(result.len(), 4096);
+    }
+
+    #[test]
+    fn test_truncate_message_ascii_over_limit() {
+        let msg = "a".repeat(5000);
+        let result = truncate_message(&msg).unwrap();
+        assert_eq!(result.len(), 4096);
+    }
+
+    #[test]
+    fn test_truncate_message_multibyte_at_boundary() {
+        // '€' is 3 bytes in UTF-8. Fill so the 4096 boundary falls mid-character.
+        let unit = "€"; // 3 bytes
+        let count = 4096 / 3 + 1; // enough to exceed 4096 bytes
+        let msg: String = unit.repeat(count);
+        let result = truncate_message(&msg).unwrap();
+        assert!(result.len() <= 4096);
+        // Must end on a valid char boundary (no panic on further use)
+        assert!(result.is_char_boundary(result.len()));
+        // Should be the largest multiple of 3 that fits
+        assert_eq!(result.len(), (4096 / 3) * 3);
     }
 }
