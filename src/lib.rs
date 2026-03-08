@@ -311,6 +311,11 @@ impl UpdateChecker {
     /// For additional metadata (update messages, response body), use
     /// [`check_detailed`](Self::check_detailed) instead.
     ///
+    /// # Stability
+    ///
+    /// In 2.0, `check` and `check_detailed` will likely be combined into a
+    /// single method returning `DetailedUpdateInfo` (with `UpdateInfo` removed).
+    ///
     /// # Errors
     ///
     /// Returns an error if the crate name is invalid, the HTTP request fails,
@@ -332,6 +337,11 @@ impl UpdateChecker {
     /// Like [`check`](Self::check), but returns [`DetailedUpdateInfo`] which
     /// includes an optional author message and (with the `response-body`
     /// feature) the raw crates.io response.
+    ///
+    /// # Stability
+    ///
+    /// In 2.0, `check` and `check_detailed` will likely be combined into a
+    /// single method returning `DetailedUpdateInfo` (with `UpdateInfo` removed).
     ///
     /// # Errors
     ///

@@ -107,6 +107,11 @@ impl UpdateChecker {
     ///
     /// For additional metadata (update messages, response body), use
     /// [`check_detailed`](Self::check_detailed) instead.
+    ///
+    /// # Stability
+    ///
+    /// In 2.0, `check` and `check_detailed` will likely be combined into a
+    /// single method returning `DetailedUpdateInfo` (with `UpdateInfo` removed).
     pub async fn check(&self) -> Result<Option<UpdateInfo>, Error> {
         #[cfg(feature = "do-not-track")]
         if do_not_track_enabled() {
@@ -131,6 +136,11 @@ impl UpdateChecker {
     /// Like [`check`](Self::check), but returns [`DetailedUpdateInfo`] which
     /// includes an optional author message and (with the `response-body`
     /// feature) the raw crates.io response.
+    ///
+    /// # Stability
+    ///
+    /// In 2.0, `check` and `check_detailed` will likely be combined into a
+    /// single method returning `DetailedUpdateInfo` (with `UpdateInfo` removed).
     pub async fn check_detailed(&self) -> Result<Option<DetailedUpdateInfo>, Error> {
         #[cfg(feature = "do-not-track")]
         if do_not_track_enabled() {
