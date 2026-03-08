@@ -22,8 +22,8 @@ use std::time::Duration;
 #[cfg(feature = "do-not-track")]
 use crate::do_not_track_enabled;
 use crate::{
-    Error, USER_AGENT, UpdateInfo, compare_versions, extract_newest_version, read_cache,
-    truncate_message, validate_crate_name,
+    DetailedUpdateInfo, Error, USER_AGENT, UpdateInfo, compare_versions, extract_newest_version,
+    read_cache, truncate_message, validate_crate_name,
 };
 
 /// An async update checker for crates.io.
@@ -104,7 +104,34 @@ impl UpdateChecker {
     /// `Ok(None)` if already on the latest version (or if `DO_NOT_TRACK=1` is set
     /// and the `do-not-track` feature is enabled),
     /// or `Err` if the check failed.
+    ///
+    /// For additional metadata (update messages, response body), use
+    /// [`check_detailed`](Self::check_detailed) instead.
     pub async fn check(&self) -> Result<Option<UpdateInfo>, Error> {
+        #[cfg(feature = "do-not-track")]
+        if do_not_track_enabled() {
+            return Ok(None);
+        }
+
+        validate_crate_name(&self.crate_name)?;
+
+        let client = reqwest::Client::builder()
+            .timeout(self.timeout)
+            .user_agent(USER_AGENT)
+            .build()
+            .map_err(|e| Error::HttpError(e.to_string()))?;
+
+        let (latest, _) = self.get_latest_version(&client).await?;
+
+        compare_versions(&self.current_version, latest, self.include_prerelease)
+    }
+
+    /// Check for updates asynchronously with extended metadata.
+    ///
+    /// Like [`check`](Self::check), but returns [`DetailedUpdateInfo`] which
+    /// includes an optional author message and (with the `response-body`
+    /// feature) the raw crates.io response.
+    pub async fn check_detailed(&self) -> Result<Option<DetailedUpdateInfo>, Error> {
         #[cfg(feature = "do-not-track")]
         if do_not_track_enabled() {
             return Ok(None);
@@ -123,19 +150,22 @@ impl UpdateChecker {
         #[cfg(not(feature = "response-body"))]
         let (latest, _) = self.get_latest_version(&client).await?;
 
-        let mut update = compare_versions(&self.current_version, latest, self.include_prerelease)?;
+        let update = compare_versions(&self.current_version, latest, self.include_prerelease)?;
 
-        if let Some(ref mut info) = update {
-            if let Some(ref url) = self.message_url {
-                info.message = Self::fetch_message(&client, url).await;
+        match update {
+            Some(info) => {
+                let mut detailed = DetailedUpdateInfo::from(info);
+                if let Some(ref url) = self.message_url {
+                    detailed.message = Self::fetch_message(&client, url).await;
+                }
+                #[cfg(feature = "response-body")]
+                {
+                    detailed.response_body = response_body;
+                }
+                Ok(Some(detailed))
             }
-            #[cfg(feature = "response-body")]
-            {
-                info.response_body = response_body;
-            }
+            None => Ok(None),
         }
-
-        Ok(update)
     }
 
     /// Get the latest version, using cache if available and fresh.

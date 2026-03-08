@@ -44,7 +44,7 @@
 //! - `rustls`: Pure Rust TLS, better for cross-compilation
 //! - `async`: Enables async support using `reqwest`
 //! - `do-not-track` (default): Respects [`DO_NOT_TRACK`] environment variable
-//! - `response-body`: Includes the raw crates.io response body in [`UpdateInfo`]
+//! - `response-body`: Includes the raw crates.io response body in [`DetailedUpdateInfo`]
 //!
 //! ## Update Messages
 //!
@@ -57,7 +57,7 @@
 //! let checker = UpdateChecker::new("my-crate", "1.0.0")
 //!     .message_url("https://example.com/my-crate-update-message.txt");
 //!
-//! if let Ok(Some(update)) = checker.check() {
+//! if let Ok(Some(update)) = checker.check_detailed() {
 //!     eprintln!("Update available: {} -> {}", update.current, update.latest);
 //!     if let Some(msg) = &update.message {
 //!         eprintln!("{msg}");
@@ -115,8 +115,26 @@ pub(crate) fn truncate_message(text: &str) -> Option<String> {
 }
 
 /// Information about an available update.
+///
+/// # Stability
+///
+/// In 2.0, this struct should be marked `#[non_exhaustive]` to allow adding
+/// fields without breaking changes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpdateInfo {
+    /// The currently running version.
+    pub current: String,
+    /// The latest available version on crates.io.
+    pub latest: String,
+}
+
+/// Extended update information with optional message and response data.
+///
+/// Returned by [`UpdateChecker::check_detailed`]. Contains the same version
+/// information as [`UpdateInfo`] plus additional metadata.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct DetailedUpdateInfo {
     /// The currently running version.
     pub current: String,
     /// The latest available version on crates.io.
@@ -136,6 +154,27 @@ pub struct UpdateInfo {
     /// This is `None` when the version was served from cache.
     #[cfg(feature = "response-body")]
     pub response_body: Option<String>,
+}
+
+impl From<UpdateInfo> for DetailedUpdateInfo {
+    fn from(info: UpdateInfo) -> Self {
+        Self {
+            current: info.current,
+            latest: info.latest,
+            message: None,
+            #[cfg(feature = "response-body")]
+            response_body: None,
+        }
+    }
+}
+
+impl From<DetailedUpdateInfo> for UpdateInfo {
+    fn from(info: DetailedUpdateInfo) -> Self {
+        Self {
+            current: info.current,
+            latest: info.latest,
+        }
+    }
 }
 
 /// Errors that can occur during update checking.
@@ -269,6 +308,9 @@ impl UpdateChecker {
     /// and the `do-not-track` feature is enabled),
     /// or `Err` if the check failed.
     ///
+    /// For additional metadata (update messages, response body), use
+    /// [`check_detailed`](Self::check_detailed) instead.
+    ///
     /// # Errors
     ///
     /// Returns an error if the crate name is invalid, the HTTP request fails,
@@ -280,24 +322,46 @@ impl UpdateChecker {
         }
 
         validate_crate_name(&self.crate_name)?;
+        let (latest, _) = self.get_latest_version()?;
+
+        compare_versions(&self.current_version, latest, self.include_prerelease)
+    }
+
+    /// Check for updates with extended metadata.
+    ///
+    /// Like [`check`](Self::check), but returns [`DetailedUpdateInfo`] which
+    /// includes an optional author message and (with the `response-body`
+    /// feature) the raw crates.io response.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the crate name is invalid, the HTTP request fails,
+    /// the response cannot be parsed, or version comparison fails.
+    pub fn check_detailed(&self) -> Result<Option<DetailedUpdateInfo>, Error> {
+        #[cfg(feature = "do-not-track")]
+        if do_not_track_enabled() {
+            return Ok(None);
+        }
+
+        validate_crate_name(&self.crate_name)?;
         #[cfg(feature = "response-body")]
         let (latest, response_body) = self.get_latest_version()?;
         #[cfg(not(feature = "response-body"))]
         let (latest, _) = self.get_latest_version()?;
 
-        let mut update = compare_versions(&self.current_version, latest, self.include_prerelease)?;
+        let update = compare_versions(&self.current_version, latest, self.include_prerelease)?;
 
-        if let Some(ref mut info) = update {
+        Ok(update.map(|info| {
+            let mut detailed = DetailedUpdateInfo::from(info);
             if let Some(ref url) = self.message_url {
-                info.message = self.fetch_message(url);
+                detailed.message = self.fetch_message(url);
             }
             #[cfg(feature = "response-body")]
             {
-                info.response_body = response_body;
+                detailed.response_body = response_body;
             }
-        }
-
-        Ok(update)
+            detailed
+        }))
     }
 
     /// Get the latest version, using cache if available and fresh.
@@ -384,9 +448,6 @@ pub(crate) fn compare_versions(
         Ok(Some(UpdateInfo {
             current: current_version.to_string(),
             latest,
-            message: None,
-            #[cfg(feature = "response-body")]
-            response_body: None,
         }))
     } else {
         Ok(None)
@@ -560,9 +621,6 @@ mod tests {
         let info = UpdateInfo {
             current: "1.0.0".to_string(),
             latest: "2.0.0".to_string(),
-            message: None,
-            #[cfg(feature = "response-body")]
-            response_body: None,
         };
         assert_eq!(info.current, "1.0.0");
         assert_eq!(info.latest, "2.0.0");
@@ -768,12 +826,13 @@ mod tests {
         let result = compare_versions("1.0.0", "2.0.0".to_string(), false)
             .unwrap()
             .unwrap();
-        assert!(result.message.is_none());
+        assert_eq!(result.current, "1.0.0");
+        assert_eq!(result.latest, "2.0.0");
     }
 
     #[test]
-    fn test_update_info_with_message() {
-        let info = UpdateInfo {
+    fn test_detailed_update_info_with_message() {
+        let info = DetailedUpdateInfo {
             current: "1.0.0".to_string(),
             latest: "2.0.0".to_string(),
             message: Some("Please update!".to_string()),
@@ -785,8 +844,8 @@ mod tests {
 
     #[cfg(feature = "response-body")]
     #[test]
-    fn test_update_info_with_response_body() {
-        let info = UpdateInfo {
+    fn test_detailed_update_info_with_response_body() {
+        let info = DetailedUpdateInfo {
             current: "1.0.0".to_string(),
             latest: "2.0.0".to_string(),
             message: None,
