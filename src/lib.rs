@@ -7,7 +7,7 @@
 //!
 //! ## Features
 //!
-//! - **Minimal dependencies**: Only `minreq` and `semver`
+//! - **Minimal dependencies**: Only `minreq` and `semver` (sync mode)
 //! - **Small binary impact**: ~0.5MB with `native-tls` (vs ~1.4MB for alternatives)
 //! - **Simple file-based caching**: Configurable cache duration (default: 24 hours)
 //! - **TLS flexibility**: Choose `native-tls` (default) or `rustls`
@@ -75,7 +75,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! tiny-update-check = { version = "0.1", default-features = false, features = ["native-tls"] }
+//! tiny-update-check = { version = "1", default-features = false, features = ["native-tls"] }
 //! ```
 //!
 //! [`DO_NOT_TRACK`]: https://consoledonottrack.com/
@@ -530,6 +530,7 @@ pub(crate) fn cache_dir() -> Option<PathBuf> {
         None
     }
 }
+
 /// Convenience function to check for updates with default settings.
 ///
 /// # Example

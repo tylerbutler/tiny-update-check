@@ -5,9 +5,19 @@ Thank you for your interest in contributing!
 ## Development Setup
 
 1. Clone the repository
-2. Install Rust via [rustup](https://rustup.rs/)
+2. Install Rust 1.85+ via [rustup](https://rustup.rs/) (the project uses edition 2024)
 3. Install [just](https://github.com/casey/just) for task running
-4. Run `just ci` to verify your setup
+4. Optionally install [mise](https://mise.jdx.dev/) to manage tool versions automatically
+5. Run `just ci` to verify your setup
+
+> **Note:** `just ci` requires `cargo-audit` and `cargo-deny`. Install them with:
+> ```bash
+> cargo install cargo-audit cargo-deny
+> ```
+> For faster test execution, install `cargo-nextest`:
+> ```bash
+> cargo install cargo-nextest
+> ```
 
 ## Making Changes
 
@@ -66,4 +76,4 @@ docs: update API documentation
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the same license as the project.
+By contributing, you agree that your contributions will be dual-licensed under MIT and Apache-2.0, as described in the [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE) files.
