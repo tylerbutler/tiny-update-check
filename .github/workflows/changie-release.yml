@@ -26,6 +26,9 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           version-files: 'Cargo.toml:version'
 
+      - uses: ./.github/actions/setup-rust
+        if: steps.release.outputs.skipped != 'true'
+
       # Update Cargo.lock to match the version bumped by changie-release
       - name: Update Cargo.lock
         if: steps.release.outputs.skipped != 'true'
@@ -39,6 +42,19 @@ jobs:
           git add Cargo.lock
           if ! git diff --cached --quiet; then
             git commit -m "chore: update Cargo.lock"
+            git push origin "$PR_BRANCH"
+          fi
+
+      # Record binary sizes for the release version
+      - name: Record binary sizes
+        if: steps.release.outputs.skipped != 'true'
+        env:
+          PR_BRANCH: ${{ steps.release.outputs.pr-branch }}
+        run: |
+          just record-size
+          git add metrics/binary-size.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: record binary sizes"
             git push origin "$PR_BRANCH"
           fi
 
