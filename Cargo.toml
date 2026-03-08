@@ -2,7 +2,7 @@
 name = "tiny-update-check"
 version = "1.0.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.87"
 authors = ["Tyler Butler <tyler@tylerbutler.com>"]
 description = "A minimal, lightweight crate update checker for Rust CLI applications"
 license = "MIT OR Apache-2.0"
