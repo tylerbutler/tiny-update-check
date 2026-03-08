@@ -290,7 +290,7 @@ impl UpdateChecker {
     /// Set a URL to fetch an update message from.
     ///
     /// When an update is available, the checker will make a separate HTTP request
-    /// to this URL and include the response as [`UpdateInfo::message`]. The URL
+    /// to this URL and include the response as [`DetailedUpdateInfo::message`]. The URL
     /// should serve plain text.
     ///
     /// The fetch is best-effort: if it fails, the update check still succeeds
