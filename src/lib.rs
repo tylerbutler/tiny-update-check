@@ -7,7 +7,7 @@
 //!
 //! ## Features
 //!
-//! - **Minimal dependencies**: Only `minreq` and `semver`
+//! - **Minimal dependencies**: Only `minreq` and `semver` (sync mode)
 //! - **Small binary impact**: ~0.5MB with `native-tls` (vs ~1.4MB for alternatives)
 //! - **Simple file-based caching**: Configurable cache duration (default: 24 hours)
 //! - **TLS flexibility**: Choose `native-tls` (default) or `rustls`
@@ -44,6 +44,26 @@
 //! - `rustls`: Pure Rust TLS, better for cross-compilation
 //! - `async`: Enables async support using `reqwest`
 //! - `do-not-track` (default): Respects [`DO_NOT_TRACK`] environment variable
+//! - `response-body`: Includes the raw crates.io response body in [`DetailedUpdateInfo`]
+//!
+//! ## Update Messages
+//!
+//! You can attach a message to update notifications by hosting a plain text file
+//! at a URL and configuring the checker with [`UpdateChecker::message_url`]:
+//!
+//! ```no_run
+//! use tiny_update_check::UpdateChecker;
+//!
+//! let checker = UpdateChecker::new("my-crate", "1.0.0")
+//!     .message_url("https://example.com/my-crate-update-message.txt");
+//!
+//! if let Ok(Some(update)) = checker.check_detailed() {
+//!     eprintln!("Update available: {} -> {}", update.current, update.latest);
+//!     if let Some(msg) = &update.message {
+//!         eprintln!("{msg}");
+//!     }
+//! }
+//! ```
 //!
 //! ## `DO_NOT_TRACK` Support
 //!
@@ -55,7 +75,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! tiny-update-check = { version = "0.1", default-features = false, features = ["native-tls"] }
+//! tiny-update-check = { version = "1", default-features = false, features = ["native-tls"] }
 //! ```
 //!
 //! [`DO_NOT_TRACK`]: https://consoledonottrack.com/
@@ -70,13 +90,91 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
+pub(crate) const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
+
+const MAX_MESSAGE_SIZE: usize = 4096;
+
+/// Trim and truncate a message body to at most [`MAX_MESSAGE_SIZE`] bytes,
+/// splitting on a valid UTF-8 char boundary.
+///
+/// Returns `None` if the input is empty or whitespace-only.
+pub(crate) fn truncate_message(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if trimmed.len() > MAX_MESSAGE_SIZE {
+        let mut end = MAX_MESSAGE_SIZE;
+        while !trimmed.is_char_boundary(end) {
+            end -= 1;
+        }
+        Some(trimmed[..end].to_string())
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
 /// Information about an available update.
+///
+/// # Stability
+///
+/// In 2.0, this struct should be marked `#[non_exhaustive]` to allow adding
+/// fields without breaking changes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpdateInfo {
     /// The currently running version.
     pub current: String,
     /// The latest available version on crates.io.
     pub latest: String,
+}
+
+/// Extended update information with optional message and response data.
+///
+/// Returned by [`UpdateChecker::check_detailed`]. Contains the same version
+/// information as [`UpdateInfo`] plus additional metadata.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct DetailedUpdateInfo {
+    /// The currently running version.
+    pub current: String,
+    /// The latest available version on crates.io.
+    pub latest: String,
+    /// An optional message from the crate author.
+    ///
+    /// Populated when [`UpdateChecker::message_url`] is configured and the
+    /// message was successfully fetched. The message is plain text, trimmed,
+    /// and truncated to 4KB.
+    pub message: Option<String>,
+    /// The raw response body from crates.io.
+    ///
+    /// Only available when the `response-body` feature is enabled. This lets
+    /// you extract any field from the crates.io API response using your own
+    /// parsing logic.
+    ///
+    /// This is `None` when the version was served from cache.
+    #[cfg(feature = "response-body")]
+    pub response_body: Option<String>,
+}
+
+impl From<UpdateInfo> for DetailedUpdateInfo {
+    fn from(info: UpdateInfo) -> Self {
+        Self {
+            current: info.current,
+            latest: info.latest,
+            message: None,
+            #[cfg(feature = "response-body")]
+            response_body: None,
+        }
+    }
+}
+
+impl From<DetailedUpdateInfo> for UpdateInfo {
+    fn from(info: DetailedUpdateInfo) -> Self {
+        Self {
+            current: info.current,
+            latest: info.latest,
+        }
+    }
 }
 
 /// Errors that can occur during update checking.
@@ -130,6 +228,7 @@ pub struct UpdateChecker {
     timeout: Duration,
     cache_dir: Option<PathBuf>,
     include_prerelease: bool,
+    message_url: Option<String>,
 }
 
 impl UpdateChecker {
@@ -148,6 +247,7 @@ impl UpdateChecker {
             timeout: Duration::from_secs(5),
             cache_dir: cache_dir(),
             include_prerelease: false,
+            message_url: None,
         }
     }
 
@@ -187,12 +287,34 @@ impl UpdateChecker {
         self
     }
 
+    /// Set a URL to fetch an update message from.
+    ///
+    /// When an update is available, the checker will make a separate HTTP request
+    /// to this URL and include the response as [`DetailedUpdateInfo::message`]. The URL
+    /// should serve plain text.
+    ///
+    /// The fetch is best-effort: if it fails, the update check still succeeds
+    /// with `message` set to `None`. The message is trimmed and truncated to 4KB.
+    #[must_use]
+    pub fn message_url(mut self, url: impl Into<String>) -> Self {
+        self.message_url = Some(url.into());
+        self
+    }
+
     /// Check for updates.
     ///
     /// Returns `Ok(Some(UpdateInfo))` if a newer version is available,
     /// `Ok(None)` if already on the latest version (or if `DO_NOT_TRACK=1` is set
     /// and the `do-not-track` feature is enabled),
     /// or `Err` if the check failed.
+    ///
+    /// For additional metadata (update messages, response body), use
+    /// [`check_detailed`](Self::check_detailed) instead.
+    ///
+    /// # Stability
+    ///
+    /// In 2.0, `check` and `check_detailed` will likely be combined into a
+    /// single method returning `DetailedUpdateInfo` (with `UpdateInfo` removed).
     ///
     /// # Errors
     ///
@@ -205,12 +327,55 @@ impl UpdateChecker {
         }
 
         validate_crate_name(&self.crate_name)?;
-        let latest = self.get_latest_version()?;
+        let (latest, _) = self.get_latest_version()?;
+
         compare_versions(&self.current_version, latest, self.include_prerelease)
     }
 
+    /// Check for updates with extended metadata.
+    ///
+    /// Like [`check`](Self::check), but returns [`DetailedUpdateInfo`] which
+    /// includes an optional author message and (with the `response-body`
+    /// feature) the raw crates.io response.
+    ///
+    /// # Stability
+    ///
+    /// In 2.0, `check` and `check_detailed` will likely be combined into a
+    /// single method returning `DetailedUpdateInfo` (with `UpdateInfo` removed).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the crate name is invalid, the HTTP request fails,
+    /// the response cannot be parsed, or version comparison fails.
+    pub fn check_detailed(&self) -> Result<Option<DetailedUpdateInfo>, Error> {
+        #[cfg(feature = "do-not-track")]
+        if do_not_track_enabled() {
+            return Ok(None);
+        }
+
+        validate_crate_name(&self.crate_name)?;
+        #[cfg(feature = "response-body")]
+        let (latest, response_body) = self.get_latest_version()?;
+        #[cfg(not(feature = "response-body"))]
+        let (latest, _) = self.get_latest_version()?;
+
+        let update = compare_versions(&self.current_version, latest, self.include_prerelease)?;
+
+        Ok(update.map(|info| {
+            let mut detailed = DetailedUpdateInfo::from(info);
+            if let Some(ref url) = self.message_url {
+                detailed.message = self.fetch_message(url);
+            }
+            #[cfg(feature = "response-body")]
+            {
+                detailed.response_body = response_body;
+            }
+            detailed
+        }))
+    }
+
     /// Get the latest version, using cache if available and fresh.
-    fn get_latest_version(&self) -> Result<String, Error> {
+    fn get_latest_version(&self) -> Result<(String, Option<String>), Error> {
         let path = self
             .cache_dir
             .as_ref()
@@ -220,32 +385,29 @@ impl UpdateChecker {
         if self.cache_duration > Duration::ZERO {
             if let Some(ref path) = path {
                 if let Some(cached) = read_cache(path, self.cache_duration) {
-                    return Ok(cached);
+                    return Ok((cached, None));
                 }
             }
         }
 
         // Fetch from crates.io
-        let latest = self.fetch_latest_version()?;
+        let (latest, response_body) = self.fetch_latest_version()?;
 
         // Update cache
         if let Some(ref path) = path {
             let _ = fs::write(path, &latest);
         }
 
-        Ok(latest)
+        Ok((latest, response_body))
     }
 
     /// Fetch the latest version from crates.io.
-    fn fetch_latest_version(&self) -> Result<String, Error> {
+    fn fetch_latest_version(&self) -> Result<(String, Option<String>), Error> {
         let url = format!("https://crates.io/api/v1/crates/{}", self.crate_name);
 
         let response = minreq::get(&url)
             .with_timeout(self.timeout.as_secs())
-            .with_header(
-                "User-Agent",
-                concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")),
-            )
+            .with_header("User-Agent", USER_AGENT)
             .send()
             .map_err(|e| Error::HttpError(e.to_string()))?;
 
@@ -253,7 +415,27 @@ impl UpdateChecker {
             .as_str()
             .map_err(|e| Error::HttpError(e.to_string()))?;
 
-        extract_newest_version(body)
+        let version = extract_newest_version(body)?;
+
+        #[cfg(feature = "response-body")]
+        return Ok((version, Some(body.to_string())));
+
+        #[cfg(not(feature = "response-body"))]
+        Ok((version, None))
+    }
+
+    /// Fetch a plain text message from the configured URL.
+    ///
+    /// Best-effort: returns `None` on any failure.
+    fn fetch_message(&self, url: &str) -> Option<String> {
+        let response = minreq::get(url)
+            .with_timeout(self.timeout.as_secs())
+            .with_header("User-Agent", USER_AGENT)
+            .send()
+            .ok()?;
+
+        let body = response.as_str().ok()?;
+        truncate_message(body)
     }
 }
 
@@ -419,6 +601,7 @@ pub(crate) fn cache_dir() -> Option<PathBuf> {
         None
     }
 }
+
 /// Convenience function to check for updates with default settings.
 ///
 /// # Example
@@ -463,6 +646,7 @@ mod tests {
         assert_eq!(checker.current_version, "1.0.0");
         assert_eq!(checker.cache_duration, Duration::from_secs(3600));
         assert_eq!(checker.timeout, Duration::from_secs(10));
+        assert!(checker.message_url.is_none());
     }
 
     #[test]
@@ -616,5 +800,121 @@ mod tests {
                 assert!(!do_not_track_enabled());
             });
         }
+    }
+
+    #[test]
+    fn test_message_url_default() {
+        let checker = UpdateChecker::new("test-crate", "1.0.0");
+        assert!(checker.message_url.is_none());
+    }
+
+    #[test]
+    fn test_message_url_builder() {
+        let checker = UpdateChecker::new("test-crate", "1.0.0")
+            .message_url("https://example.com/message.txt");
+        assert_eq!(
+            checker.message_url.as_deref(),
+            Some("https://example.com/message.txt")
+        );
+    }
+
+    #[test]
+    fn test_message_url_chainable() {
+        let checker = UpdateChecker::new("test-crate", "1.0.0")
+            .cache_duration(Duration::from_secs(3600))
+            .message_url("https://example.com/msg.txt")
+            .timeout(Duration::from_secs(10));
+        assert_eq!(
+            checker.message_url.as_deref(),
+            Some("https://example.com/msg.txt")
+        );
+        assert_eq!(checker.timeout, Duration::from_secs(10));
+    }
+
+    #[test]
+    fn test_compare_versions_returns_none_message() {
+        let result = compare_versions("1.0.0", "2.0.0".to_string(), false)
+            .unwrap()
+            .unwrap();
+        assert_eq!(result.current, "1.0.0");
+        assert_eq!(result.latest, "2.0.0");
+    }
+
+    #[test]
+    fn test_detailed_update_info_with_message() {
+        let info = DetailedUpdateInfo {
+            current: "1.0.0".to_string(),
+            latest: "2.0.0".to_string(),
+            message: Some("Please update!".to_string()),
+            #[cfg(feature = "response-body")]
+            response_body: None,
+        };
+        assert_eq!(info.message.as_deref(), Some("Please update!"));
+    }
+
+    #[cfg(feature = "response-body")]
+    #[test]
+    fn test_detailed_update_info_with_response_body() {
+        let info = DetailedUpdateInfo {
+            current: "1.0.0".to_string(),
+            latest: "2.0.0".to_string(),
+            message: None,
+            response_body: Some("{\"crate\":{}}".to_string()),
+        };
+        assert_eq!(info.response_body.as_deref(), Some("{\"crate\":{}}"));
+    }
+
+    #[test]
+    fn test_truncate_message_empty() {
+        assert_eq!(truncate_message(""), None);
+    }
+
+    #[test]
+    fn test_truncate_message_whitespace_only() {
+        assert_eq!(truncate_message("   \n\t  "), None);
+    }
+
+    #[test]
+    fn test_truncate_message_ascii_within_limit() {
+        assert_eq!(
+            truncate_message("hello world"),
+            Some("hello world".to_string())
+        );
+    }
+
+    #[test]
+    fn test_truncate_message_trims_whitespace() {
+        assert_eq!(
+            truncate_message("  hello world  \n"),
+            Some("hello world".to_string())
+        );
+    }
+
+    #[test]
+    fn test_truncate_message_exactly_at_limit() {
+        let msg = "a".repeat(4096);
+        let result = truncate_message(&msg).unwrap();
+        assert_eq!(result.len(), 4096);
+    }
+
+    #[test]
+    fn test_truncate_message_ascii_over_limit() {
+        let msg = "a".repeat(5000);
+        let result = truncate_message(&msg).unwrap();
+        assert_eq!(result.len(), 4096);
+    }
+
+    #[test]
+    fn test_truncate_message_multibyte_at_boundary() {
+        // '€' is 3 bytes in UTF-8. Fill so the 4096 boundary falls mid-character.
+        let unit = "€"; // 3 bytes
+        let count = 4096 / 3 + 1; // enough to exceed 4096 bytes
+        let msg: String = unit.repeat(count);
+        let result = truncate_message(&msg).unwrap();
+        assert!(result.len() <= 4096);
+        // Must end on a valid char boundary (no panic on further use)
+        assert!(result.is_char_boundary(result.len()));
+        // Should be the largest multiple of 3 that fits
+        assert_eq!(result.len(), (4096 / 3) * 3);
     }
 }

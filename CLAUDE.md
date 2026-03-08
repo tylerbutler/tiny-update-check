@@ -26,27 +26,32 @@ cargo doc --open    # View documentation
 ### Core Components
 
 - `UpdateChecker` - Builder struct for configuring update checks
-- `UpdateInfo` - Return type containing current/latest versions
+- `UpdateInfo` - Return type containing current/latest versions and optional message
 - `Error` - Error enum for various failure modes
 - `check()` - Convenience function for simple use cases
+- `r#async` module - Async equivalents (behind `async` feature)
 
 ### Dependencies
 
 Minimal by design:
-- `ureq` - HTTP client (with `native-tls` or `rustls` feature)
+- `minreq` - HTTP client (with `native-tls` or `rustls` feature)
 - `semver` - Version parsing and comparison
-- `dirs` - System cache directory detection
+- `reqwest` - Async HTTP client (optional, with `async` feature)
 
 ### Feature Flags
 
 - `native-tls` (default) - Uses system TLS, smaller binary
+- `do-not-track` (default) - Respects the `DO_NOT_TRACK` environment variable
 - `rustls` - Pure Rust TLS, better cross-compilation
+- `async` - Async support using `reqwest`
+- `response-body` - Includes raw crates.io response body in `UpdateInfo`
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `src/lib.rs` | All library code (single file) |
+| `src/lib.rs` | Sync library code |
+| `src/async.rs` | Async library code (behind `async` feature) |
 | `tests/integration.rs` | Integration tests |
 | `Cargo.toml` | Package manifest with features |
 
@@ -61,7 +66,9 @@ if let Ok(Some(update)) = tiny_update_check::check("my-crate", "1.0.0") {
 // Builder pattern
 let checker = UpdateChecker::new("my-crate", "1.0.0")
     .cache_duration(Duration::from_secs(3600))
-    .timeout(Duration::from_secs(10));
+    .timeout(Duration::from_secs(10))
+    .include_prerelease(false)
+    .message_url("https://example.com/update-msg.txt");
 ```
 
 ## Testing

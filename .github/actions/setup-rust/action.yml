@@ -1,42 +1,46 @@
-name: Setup Rust
-description: Standardized Rust toolchain setup with caching
+name: 'Setup Rust Environment'
+description: 'Standardized Rust toolchain setup with caching'
 
 inputs:
   toolchain:
-    description: Rust toolchain to install (leave empty to use rust-toolchain.toml)
-    default: ''
+    description: 'Rust toolchain version'
+    required: false
+    default: 'stable'
   components:
-    description: Additional components (comma-separated)
+    description: 'Rust components to install (comma-separated, e.g., rustfmt,clippy)'
+    required: false
     default: ''
   targets:
-    description: Compilation targets (comma-separated)
+    description: 'Additional compilation targets (comma-separated)'
+    required: false
     default: ''
   cache:
-    description: Enable cargo caching
+    description: 'Whether to cache Rust artifacts'
+    required: false
+    default: 'true'
+  install-just:
+    description: 'Whether to install just task runner'
+    required: false
     default: 'true'
 
 runs:
   using: composite
   steps:
-    - name: Determine toolchain
-      id: toolchain
-      shell: bash
-      run: |
-        if [[ -n "${{ inputs.toolchain }}" ]]; then
-          echo "version=${{ inputs.toolchain }}" >> "$GITHUB_OUTPUT"
-        elif [[ -f rust-toolchain.toml ]]; then
-          VERSION=$(grep 'channel' rust-toolchain.toml | cut -d'"' -f2)
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-        else
-          echo "version=stable" >> "$GITHUB_OUTPUT"
-        fi
-    - uses: dtolnay/rust-toolchain@6d9817901c499d6b02debbb57edb38d33daa680b # ratchet:dtolnay/rust-toolchain@stable
+    - name: Install just
+      if: inputs.install-just == 'true'
+      uses: taiki-e/install-action@4573997e3b6c0fbc22f7acab193b00a8a3ca817d # ratchet:taiki-e/install-action@v2
       with:
-        toolchain: ${{ steps.toolchain.outputs.version }}
+        tool: just
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@4be9e76fd7c4901c61fb841f559994984270fce7 # ratchet:dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ inputs.toolchain }}
         components: ${{ inputs.components }}
         targets: ${{ inputs.targets }}
-    - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # ratchet:Swatinem/rust-cache@v2
+
+    - name: Setup Rust Cache
       if: inputs.cache == 'true'
+      uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # ratchet:Swatinem/rust-cache@v2
       with:
-        shared-key: "rust-${{ runner.os }}-${{ steps.toolchain.outputs.version }}"
-        cache-on-failure: true
+        shared-key: rust-${{ runner.os }}-${{ inputs.toolchain }}
