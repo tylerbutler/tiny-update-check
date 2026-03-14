@@ -7,7 +7,7 @@
 //!
 //! ## Features
 //!
-//! - **Minimal dependencies**: Only `minreq` and `semver` (sync mode)
+//! - **Minimal dependencies**: Only `minreq`, `semver`, and `serde_json` (sync mode)
 //! - **Small binary impact**: ~0.5MB with `native-tls` (vs ~1.4MB for alternatives)
 //! - **Simple file-based caching**: Configurable cache duration (default: 24 hours)
 //! - **TLS flexibility**: Choose `native-tls` (default) or `rustls`
@@ -479,49 +479,21 @@ pub(crate) fn read_cache(path: &std::path::Path, cache_duration: Duration) -> Op
 
 /// Extract the `newest_version` field from a crates.io API response.
 ///
-/// This function parses the JSON response without requiring a full JSON parser,
-/// handling various whitespace formats that the API might return.
+/// Parses the JSON response and extracts `crate.newest_version`.
 pub(crate) fn extract_newest_version(body: &str) -> Result<String, Error> {
-    // Find the "crate" object first to ensure we're in the right context
-    let crate_start = body
-        .find(r#""crate""#)
-        .ok_or_else(|| Error::ParseError("'crate' field not found in response".to_string()))?;
+    let json: serde_json::Value =
+        serde_json::from_str(body).map_err(|e| Error::ParseError(e.to_string()))?;
 
-    // Search from the crate field onward
-    let search_region = &body[crate_start..];
-
-    // Find "newest_version" within the crate object
-    let version_key = r#""newest_version""#;
-    let key_pos = search_region.find(version_key).ok_or_else(|| {
-        Error::ParseError("'newest_version' field not found in response".to_string())
-    })?;
-
-    // Move past the key
-    let after_key = &search_region[key_pos + version_key.len()..];
-
-    // Find the colon (handles optional whitespace)
-    let colon_pos = after_key.find(':').ok_or_else(|| {
-        Error::ParseError("malformed JSON: missing colon after newest_version".to_string())
-    })?;
-
-    // Move past the colon and any whitespace
-    let after_colon = &after_key[colon_pos + 1..];
-    let after_colon_trimmed = after_colon.trim_start();
-
-    // Find the opening quote
-    if !after_colon_trimmed.starts_with('"') {
-        return Err(Error::ParseError(
-            "malformed JSON: expected quote after newest_version colon".to_string(),
-        ));
-    }
-
-    // Extract the version string (everything until the closing quote)
-    let version_start = &after_colon_trimmed[1..];
-    let quote_end = version_start
-        .find('"')
-        .ok_or_else(|| Error::ParseError("malformed JSON: unclosed version string".to_string()))?;
-
-    Ok(version_start[..quote_end].to_string())
+    json["crate"]["newest_version"]
+        .as_str()
+        .map(String::from)
+        .ok_or_else(|| {
+            if json.get("crate").is_none() {
+                Error::ParseError("'crate' field not found in response".to_string())
+            } else {
+                Error::ParseError("'newest_version' field not found in response".to_string())
+            }
+        })
 }
 
 /// Check if the `DO_NOT_TRACK` environment variable is set to a truthy value.
@@ -696,6 +668,9 @@ mod tests {
     const SPACED_COLON: &str = include_str!("../tests/fixtures/spaced_colon.json");
     const MISSING_CRATE: &str = include_str!("../tests/fixtures/missing_crate.json");
     const MISSING_VERSION: &str = include_str!("../tests/fixtures/missing_version.json");
+    const ESCAPED_CHARS: &str = include_str!("../tests/fixtures/escaped_chars.json");
+    const NESTED_VERSION: &str = include_str!("../tests/fixtures/nested_version.json");
+    const NULL_VERSION: &str = include_str!("../tests/fixtures/null_version.json");
 
     #[test]
     fn parses_real_crates_io_response() {
@@ -752,6 +727,26 @@ mod tests {
     #[test]
     fn fails_on_malformed_json() {
         let result = extract_newest_version("not json at all");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parses_json_with_escaped_characters() {
+        let version = extract_newest_version(ESCAPED_CHARS).unwrap();
+        assert_eq!(version, "4.0.0");
+    }
+
+    #[test]
+    fn parses_version_from_crate_object_not_versions_array() {
+        // The "newest_version" in the versions array should be ignored;
+        // only the one inside the top-level "crate" object matters.
+        let version = extract_newest_version(NESTED_VERSION).unwrap();
+        assert_eq!(version, "5.0.0");
+    }
+
+    #[test]
+    fn fails_on_null_version() {
+        let result = extract_newest_version(NULL_VERSION);
         assert!(result.is_err());
     }
 
