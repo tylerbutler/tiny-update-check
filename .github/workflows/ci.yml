@@ -76,3 +76,26 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
       - uses: tylerbutler/actions/setup-rust@2189c2e4cd75378b6db8b68ba451bf74d0975c4a # ratchet:tylerbutler/actions/setup-rust@main
       - run: RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
+
+  # Gate job for required status check — reports a single fixed-name check
+  # that passes when all CI jobs pass (or are skipped).
+  ci-result:
+    name: CI Result
+    if: always()
+    needs: [test, lint, format, docs]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check CI results
+        run: |
+          for job in test lint format docs; do
+            result="${{ needs.test.result }}"
+            case "$job" in
+              lint) result="${{ needs.lint.result }}" ;;
+              format) result="${{ needs.format.result }}" ;;
+              docs) result="${{ needs.docs.result }}" ;;
+            esac
+            if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
+              echo "$job failed or was cancelled"
+              exit 1
+            fi
+          done

@@ -54,3 +54,18 @@ jobs:
         run: cargo check --target ${{ matrix.target }}
       - name: Check all features
         run: cargo check --all-features --target ${{ matrix.target }}
+
+  # Gate job for required status check — reports a single fixed-name check
+  # that passes when all matrix jobs pass (or are skipped).
+  build-result:
+    name: Build Result
+    if: always()
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check build matrix result
+        run: |
+          if [[ "${{ needs.build.result }}" == "failure" || "${{ needs.build.result }}" == "cancelled" ]]; then
+            echo "Build matrix failed or was cancelled"
+            exit 1
+          fi

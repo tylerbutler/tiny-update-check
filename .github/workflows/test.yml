@@ -72,3 +72,22 @@ jobs:
         with:
           toolchain: ${{ steps.msrv.outputs.version }}
       - run: cargo check --all-features
+
+  # Gate job for required status check — reports a single fixed-name check
+  # that passes when all test matrix jobs pass (or are skipped).
+  test-result:
+    name: Test Result
+    if: always()
+    needs: [test, msrv]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check test matrix result
+        run: |
+          if [[ "${{ needs.test.result }}" == "failure" || "${{ needs.test.result }}" == "cancelled" ]]; then
+            echo "Test matrix failed or was cancelled"
+            exit 1
+          fi
+          if [[ "${{ needs.msrv.result }}" == "failure" || "${{ needs.msrv.result }}" == "cancelled" ]]; then
+            echo "MSRV check failed or was cancelled"
+            exit 1
+          fi
