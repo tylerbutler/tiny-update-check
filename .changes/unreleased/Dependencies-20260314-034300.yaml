@@ -1,0 +1,6 @@
+kind: Dependencies
+body: |-
+    Replace manual JSON parsing with serde_json
+
+    Replaced ~25 lines of manual string parsing with `serde_json` for extracting `newest_version` from the crates.io API response. This fixes a bug where the parser could extract a version from a nested object instead of the top-level `crate` object, and reduces maintenance burden.
+time: 2026-03-14T03:43:00.000000-07:00
