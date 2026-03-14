@@ -2,8 +2,18 @@ name: Binary Size
 on:
   push:
     branches: [main]
+    paths:
+      - 'src/**'
+      - 'examples/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'src/**'
+      - 'examples/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
