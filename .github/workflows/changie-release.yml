@@ -30,8 +30,10 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           version-files: 'Cargo.toml:version'
 
-      - uses: ./.github/actions/setup-rust
+      - uses: tylerbutler/actions/setup-rust@2189c2e4cd75378b6db8b68ba451bf74d0975c4a # ratchet:tylerbutler/actions/setup-rust@main
         if: steps.release.outputs.skipped != 'true'
+        with:
+          tools: "just,cargo-bloat"
 
       # Update Cargo.lock to match the version bumped by changie-release
       - name: Update Cargo.lock
@@ -49,16 +51,17 @@ jobs:
             git push origin "$PR_BRANCH"
           fi
 
-      # Record binary sizes for the release version
+      # Record binary sizes and bloat reports for the release version
       - name: Record binary sizes
         if: steps.release.outputs.skipped != 'true'
         env:
           PR_BRANCH: ${{ steps.release.outputs.pr-branch }}
         run: |
           just record-size
-          git add metrics/binary-size.txt
+          just bloat
+          git add metrics/
           if ! git diff --cached --quiet; then
-            git commit -m "chore: record binary sizes"
+            git commit -m "chore: record binary sizes and bloat"
             git push origin "$PR_BRANCH"
           fi
 
