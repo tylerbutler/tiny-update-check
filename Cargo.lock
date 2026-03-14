@@ -1338,6 +1338,7 @@ dependencies = [
  "minreq",
  "reqwest",
  "semver",
+ "serde_json",
  "temp-env",
  "tokio",
 ]
