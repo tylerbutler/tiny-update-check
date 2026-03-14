@@ -12,8 +12,28 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      code: ${{ github.event_name == 'push' || steps.filter.outputs.code == 'true' }}
+    steps:
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # ratchet:dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - 'src/**'
+              - 'examples/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+
   build:
     name: Build (${{ matrix.target }})
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
