@@ -1,6 +1,0 @@
-kind: Added
-body: |-
-    Add response-body feature flag and DetailedUpdateInfo struct
-
-    New response-body feature flag includes the raw crates.io API response in DetailedUpdateInfo::response_body, enabling custom field parsing. New check_detailed() method returns DetailedUpdateInfo with optional message and response_body fields, maintaining backward compatibility with UpdateInfo.
-time: 2026-03-08T00:00:00.000000-08:00
