@@ -1,0 +1,6 @@
+kind: Changed
+body: |-
+    Bump minimum supported Rust version to 1.87
+
+    The minimum supported Rust version (MSRV) has been increased from 1.85 to 1.87.
+time: 2026-03-08T11:36:18.226500735-07:00
