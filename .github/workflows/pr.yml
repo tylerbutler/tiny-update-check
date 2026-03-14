@@ -115,26 +115,3 @@ jobs:
           header: changelog
           delete: true
 
-  # Binary size tracking
-  binary-size:
-    name: Binary Size
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.draft != true
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
-      - uses: ./.github/actions/setup-rust
-      - name: Build size check examples
-        run: |
-          cargo build --release --example size_check
-          cargo build --release --example size_check_rustls --no-default-features --features rustls
-      - uses: tylerbutler/actions/binary-size@a2b6f63843eb7510dbcba273bd6638615f668777 # ratchet:tylerbutler/actions/binary-size@main
-        id: size
-        with:
-          paths: |
-            target/release/examples/size_check
-            target/release/examples/size_check_rustls
-      - name: Comment on PR
-        uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # ratchet:marocchino/sticky-pull-request-comment@v2
-        with:
-          header: binary-size
-          message: ${{ steps.size.outputs.report }}
