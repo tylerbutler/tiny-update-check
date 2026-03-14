@@ -1,6 +1,0 @@
-kind: Added
-body: |-
-    Add update message support via message_url() builder method
-
-    Configure a URL to fetch a plain text message from when an update is detected. Messages are best-effort (failures are silent), only fetched when an update exists, and trimmed/truncated to 4KB. Accessed via the new DetailedUpdateInfo::message field using the check_detailed() method.
-time: 2026-03-08T00:00:00.000000-08:00

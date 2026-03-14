@@ -1,6 +1,0 @@
-kind: Fixed
-body: |-
-    Fix reqwest rustls feature flag for async support
-
-    Updated the `async` feature's reqwest dependency to use the `rustls` feature instead of the deprecated `rustls-tls` feature.
-time: 2026-03-08T11:36:17.117773493-07:00
