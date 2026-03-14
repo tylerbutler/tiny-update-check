@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.1.1 - 2026-03-14
+
+
+### Dependencies
+
+#### Replace manual JSON parsing with serde_json
+
+Replaced ~25 lines of manual string parsing with `serde_json` for extracting `newest_version` from the crates.io API response. This fixes a bug where the parser could extract a version from a nested object instead of the top-level `crate` object, and reduces maintenance burden.
+
+
 ## v1.1.0 - 2026-03-14
 
 
