@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Generate app token
         id: app-token
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # ratchet:actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # ratchet:actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
@@ -24,13 +24,13 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
 
-      - uses: tylerbutler/actions/changie-release@a2b6f63843eb7510dbcba273bd6638615f668777 # ratchet:tylerbutler/actions/changie-release@main
+      - uses: tylerbutler/actions/changie-release@769fc7847a0abf82ee2f724df9b65426dfb159b5 # ratchet:tylerbutler/actions/changie-release@main
         id: release
         with:
           token: ${{ steps.app-token.outputs.token }}
           version-files: 'Cargo.toml:version'
 
-      - uses: tylerbutler/actions/setup-rust@2189c2e4cd75378b6db8b68ba451bf74d0975c4a # ratchet:tylerbutler/actions/setup-rust@main
+      - uses: tylerbutler/actions/setup-rust@769fc7847a0abf82ee2f724df9b65426dfb159b5 # ratchet:tylerbutler/actions/setup-rust@main
         if: steps.release.outputs.skipped != 'true'
         with:
           tools: "just,cargo-bloat"
