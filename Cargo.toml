@@ -14,7 +14,7 @@ categories = ["command-line-utilities", "development-tools"]
 readme = "README.md"
 
 [dependencies]
-semver = "1.0.27"
+semver = "1.0.28"
 minreq = { version = "2.14.1", default-features = false }
 serde_json = { version = "1", default-features = false, features = ["std"] }
 reqwest = { version = "0.13.2", optional = true, default-features = false, features = ["rustls"] }
