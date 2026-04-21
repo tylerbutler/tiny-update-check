@@ -17,8 +17,9 @@ Existing update checker crates add significant binary bloat:
 | updates | ~1.8MB |
 
 This crate achieves minimal size by:
-- Using `native-tls` (system TLS) instead of bundling rustls
-- Minimal JSON parsing (string search instead of serde)
+- Using `native-tls` (system TLS via `minreq`) instead of bundling rustls by default
+- Using `ureq` for the `rustls` feature, which uses `ring` rather than `aws-lc-rs` (minreq's
+  rustls backend would add ~1.7 MB due to aws-lc-rs)
 - Simple file-based caching
 
 ## Installation
@@ -138,9 +139,9 @@ async fn main() {
 
 | Feature | Default | Description |
 |---------|---------|-------------|
-| `native-tls` | ✅ | Uses system TLS libraries, smaller binary |
+| `native-tls` | ✅ | System TLS via `minreq`. Smallest binary (~540 KB). |
 | `do-not-track` | ✅ | Respects the `DO_NOT_TRACK` environment variable |
-| `rustls` | | Pure Rust TLS, no system dependencies |
+| `rustls` | | Pure-Rust TLS via `ureq` + ring. No system dependencies; good for cross-compilation. Uses `ureq` rather than `minreq` to avoid `aws-lc-rs` (~1.7 MB overhead). |
 | `async` | | Async support using `reqwest` |
 | `response-body` | | Includes the raw crates.io response body in `UpdateInfo` |
 

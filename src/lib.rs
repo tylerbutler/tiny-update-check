@@ -40,8 +40,10 @@
 //!
 //! ## Feature Flags
 //!
-//! - `native-tls` (default): Uses system TLS, smaller binary size
-//! - `rustls`: Pure Rust TLS, better for cross-compilation
+//! - `native-tls` (default): Uses `minreq` + system TLS. Smallest binary (~540 KB).
+//! - `rustls`: Uses `ureq` + rustls/ring. Pure-Rust TLS, no system dependencies.
+//!   Uses `ureq` rather than `minreq` because `minreq`'s rustls backend pulls in `aws-lc-rs`,
+//!   adding ~1.7 MB. `ureq`'s rustls uses `ring`, keeping the binary small.
 //! - `async`: Enables async support using `reqwest`
 //! - `do-not-track` (default): Respects [`DO_NOT_TRACK`] environment variable
 //! - `response-body`: Includes the raw crates.io response body in [`DetailedUpdateInfo`]
@@ -89,6 +91,9 @@ pub mod r#async;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
+
+#[cfg(not(any(feature = "native-tls", feature = "rustls")))]
+compile_error!("At least one TLS feature must be enabled: `native-tls` or `rustls`");
 
 pub(crate) const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
@@ -401,24 +406,53 @@ impl UpdateChecker {
         Ok((latest, response_body))
     }
 
+    /// Build a ureq agent with the configured timeout.
+    ///
+    /// ureq is used for the `rustls` feature because its rustls backend uses ring
+    /// rather than aws-lc-rs, avoiding the ~1.7 MB binary size increase that
+    /// minreq's https-rustls feature would add.
+    #[cfg(feature = "rustls")]
+    fn build_ureq_agent(&self) -> ureq::Agent {
+        ureq::Agent::config_builder()
+            .timeout_global(Some(self.timeout))
+            .build()
+            .into()
+    }
+
     /// Fetch the latest version from crates.io.
     fn fetch_latest_version(&self) -> Result<(String, Option<String>), Error> {
         let url = format!("https://crates.io/api/v1/crates/{}", self.crate_name);
 
-        let response = minreq::get(&url)
-            .with_timeout(self.timeout.as_secs())
-            .with_header("User-Agent", USER_AGENT)
-            .send()
+        // rustls uses ureq (ring-based, small binary); native-tls uses minreq (system TLS, smallest binary).
+        // See Cargo.toml for why the two features use different HTTP clients.
+        #[cfg(feature = "rustls")]
+        let body = self
+            .build_ureq_agent()
+            .get(&url)
+            .header("User-Agent", USER_AGENT)
+            .call()
+            .map_err(|e| Error::HttpError(e.to_string()))?
+            .body_mut()
+            .read_to_string()
             .map_err(|e| Error::HttpError(e.to_string()))?;
 
-        let body = response
-            .as_str()
-            .map_err(|e| Error::HttpError(e.to_string()))?;
+        #[cfg(not(feature = "rustls"))]
+        let body = {
+            let response = minreq::get(&url)
+                .with_timeout(self.timeout.as_secs())
+                .with_header("User-Agent", USER_AGENT)
+                .send()
+                .map_err(|e| Error::HttpError(e.to_string()))?;
+            response
+                .as_str()
+                .map_err(|e| Error::HttpError(e.to_string()))?
+                .to_string()
+        };
 
-        let version = extract_newest_version(body)?;
+        let version = extract_newest_version(&body)?;
 
         #[cfg(feature = "response-body")]
-        return Ok((version, Some(body.to_string())));
+        return Ok((version, Some(body)));
 
         #[cfg(not(feature = "response-body"))]
         Ok((version, None))
@@ -428,14 +462,29 @@ impl UpdateChecker {
     ///
     /// Best-effort: returns `None` on any failure.
     fn fetch_message(&self, url: &str) -> Option<String> {
-        let response = minreq::get(url)
-            .with_timeout(self.timeout.as_secs())
-            .with_header("User-Agent", USER_AGENT)
-            .send()
+        // Same client split as fetch_latest_version — see Cargo.toml for rationale.
+        #[cfg(feature = "rustls")]
+        let body = self
+            .build_ureq_agent()
+            .get(url)
+            .header("User-Agent", USER_AGENT)
+            .call()
+            .ok()?
+            .body_mut()
+            .read_to_string()
             .ok()?;
 
-        let body = response.as_str().ok()?;
-        truncate_message(body)
+        #[cfg(not(feature = "rustls"))]
+        let body = {
+            let response = minreq::get(url)
+                .with_timeout(self.timeout.as_secs())
+                .with_header("User-Agent", USER_AGENT)
+                .send()
+                .ok()?;
+            response.as_str().ok()?.to_string()
+        };
+
+        truncate_message(&body)
     }
 }
 
@@ -859,6 +908,57 @@ mod tests {
             temp_env::with_var("DO_NOT_TRACK", None::<&str>, || {
                 assert!(!do_not_track_enabled());
             });
+        }
+    }
+
+    // Tests that are specific to the rustls feature (ureq HTTP client path).
+    // The native-tls path is covered by the tests above, which run with default features.
+    #[cfg(feature = "rustls")]
+    mod rustls_tests {
+        use super::*;
+        use std::fs;
+
+        #[test]
+        fn builder_works_with_rustls_feature() {
+            let checker = UpdateChecker::new("test-crate", "1.0.0")
+                .cache_duration(Duration::from_secs(3600))
+                .timeout(Duration::from_secs(10));
+            assert_eq!(checker.crate_name, "test-crate");
+            assert_eq!(checker.timeout, Duration::from_secs(10));
+        }
+
+        #[test]
+        fn cache_hit_does_not_invoke_http() {
+            // Verifies the cache layer works correctly with the ureq path:
+            // a fresh cache entry must be returned without making any network call.
+            let dir = tempfile::tempdir().unwrap();
+            let cache_file = dir.path().join("test-crate-update-check");
+            fs::write(&cache_file, "99.0.0").unwrap();
+
+            let checker = UpdateChecker::new("test-crate", "1.0.0")
+                .cache_dir(Some(dir.path().to_path_buf()))
+                .cache_duration(Duration::from_secs(3600));
+
+            let result = checker.check().unwrap();
+            assert!(result.is_some());
+            assert_eq!(result.unwrap().latest, "99.0.0");
+        }
+
+        #[cfg(feature = "do-not-track")]
+        #[test]
+        fn do_not_track_returns_none_with_rustls() {
+            temp_env::with_var("DO_NOT_TRACK", Some("1"), || {
+                let checker = UpdateChecker::new("test-crate", "1.0.0").cache_dir(None);
+                assert!(checker.check().unwrap().is_none());
+                assert!(checker.check_detailed().unwrap().is_none());
+            });
+        }
+
+        #[test]
+        fn invalid_crate_name_rejected_before_http() {
+            // Ensures validation fires before any HTTP call in the ureq path.
+            let checker = UpdateChecker::new("", "1.0.0").cache_dir(None);
+            assert!(matches!(checker.check(), Err(Error::InvalidCrateName(_))));
         }
     }
 
