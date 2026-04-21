@@ -419,6 +419,7 @@ impl UpdateChecker {
             .into()
     }
 
+
     /// Fetch the latest version from crates.io.
     fn fetch_latest_version(&self) -> Result<(String, Option<String>), Error> {
         let url = format!("https://crates.io/api/v1/crates/{}", self.crate_name);
@@ -452,7 +453,7 @@ impl UpdateChecker {
         let version = extract_newest_version(&body)?;
 
         #[cfg(feature = "response-body")]
-        return Ok((version, Some(body)));
+        return Ok((version, Some(body.to_string())));
 
         #[cfg(not(feature = "response-body"))]
         Ok((version, None))
