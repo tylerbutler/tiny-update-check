@@ -7,7 +7,7 @@
 //!
 //! ## Features
 //!
-//! - **Minimal dependencies**: Only `minreq`, `semver`, and `serde_json` (sync mode)
+//! - **Minimal dependencies**: Only `ureq`, `semver`, and `serde_json` (sync mode)
 //! - **Small binary impact**: ~0.5MB with `native-tls` (vs ~1.4MB for alternatives)
 //! - **Simple file-based caching**: Configurable cache duration (default: 24 hours)
 //! - **TLS flexibility**: Choose `native-tls` (default) or `rustls`
@@ -401,24 +401,43 @@ impl UpdateChecker {
         Ok((latest, response_body))
     }
 
+    fn build_agent(&self) -> ureq::Agent {
+        #[cfg(feature = "native-tls")]
+        let tls = ureq::tls::TlsConfig::builder()
+            .provider(ureq::tls::TlsProvider::NativeTls)
+            .build();
+        #[cfg(all(not(feature = "native-tls"), feature = "rustls"))]
+        let tls = ureq::tls::TlsConfig::builder()
+            .provider(ureq::tls::TlsProvider::Rustls)
+            .build();
+        #[cfg(not(any(feature = "native-tls", feature = "rustls")))]
+        let tls = ureq::tls::TlsConfig::default();
+
+        ureq::Agent::config_builder()
+            .timeout_global(Some(self.timeout))
+            .tls_config(tls)
+            .build()
+            .into()
+    }
+
     /// Fetch the latest version from crates.io.
     fn fetch_latest_version(&self) -> Result<(String, Option<String>), Error> {
         let url = format!("https://crates.io/api/v1/crates/{}", self.crate_name);
 
-        let response = minreq::get(&url)
-            .with_timeout(self.timeout.as_secs())
-            .with_header("User-Agent", USER_AGENT)
-            .send()
+        let body = self
+            .build_agent()
+            .get(&url)
+            .header("User-Agent", USER_AGENT)
+            .call()
+            .map_err(|e| Error::HttpError(e.to_string()))?
+            .body_mut()
+            .read_to_string()
             .map_err(|e| Error::HttpError(e.to_string()))?;
 
-        let body = response
-            .as_str()
-            .map_err(|e| Error::HttpError(e.to_string()))?;
-
-        let version = extract_newest_version(body)?;
+        let version = extract_newest_version(&body)?;
 
         #[cfg(feature = "response-body")]
-        return Ok((version, Some(body.to_string())));
+        return Ok((version, Some(body)));
 
         #[cfg(not(feature = "response-body"))]
         Ok((version, None))
@@ -428,14 +447,16 @@ impl UpdateChecker {
     ///
     /// Best-effort: returns `None` on any failure.
     fn fetch_message(&self, url: &str) -> Option<String> {
-        let response = minreq::get(url)
-            .with_timeout(self.timeout.as_secs())
-            .with_header("User-Agent", USER_AGENT)
-            .send()
+        let body = self
+            .build_agent()
+            .get(url)
+            .header("User-Agent", USER_AGENT)
+            .call()
+            .ok()?
+            .body_mut()
+            .read_to_string()
             .ok()?;
-
-        let body = response.as_str().ok()?;
-        truncate_message(body)
+        truncate_message(&body)
     }
 }
 
