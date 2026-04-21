@@ -12,4 +12,4 @@ body: |-
     minreq's `https-rustls` uses rustls's default crypto provider (aws-lc-rs)
     rather than ring. This is a minreq API limitation with no workaround on the
     dependent side. The default `native-tls` build is unaffected.
-time: 2026-04-21T18:13:04.362142000+0000
+time: 2026-04-21T18:13:04.362142000+00:00
