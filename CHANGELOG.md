@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.1.3 - 2026-04-21
+
+
+### Dependencies
+
+#### Use minreq 3.0.0-rc.0 for native-tls and ureq 3.3.0 for rustls
+
+The `native-tls` feature now uses `minreq 3.0.0-rc.0` (system TLS), which produces the smallest binary (~540 KB). The `rustls` feature keeps `ureq 3.3.0` because minreq's rustls backend uses `aws-lc-rs` rather than `ring`, adding ~1.7 MB. Both dependencies are now optional and only included when their respective feature is enabled.
+
+
 ## v1.1.2 - 2026-04-21
 
 
