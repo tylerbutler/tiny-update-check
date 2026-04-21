@@ -55,7 +55,13 @@ The `body` field uses a block scalar (`|-`). The first line is the summary (rend
 
 ### Time field
 
-Use the current date with a timestamp. Detect the user's local timezone offset (e.g., via the `date` command) and use that in the time field.
+Use the current UTC time. Generate the timestamp with:
+
+```bash
+date -u +"%Y-%m-%dT%H:%M:%S.%N+00:00"
+```
+
+> **CRITICAL**: Do NOT use `date +%z` — it produces `+0000` (no colon), which changie cannot parse. The offset must be `Z` or `±HH:MM` (with colon). Always hard-code `+00:00` for UTC as shown above.
 
 ## Instructions
 
