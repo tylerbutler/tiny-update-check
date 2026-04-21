@@ -452,7 +452,7 @@ impl UpdateChecker {
         let version = extract_newest_version(&body)?;
 
         #[cfg(feature = "response-body")]
-        return Ok((version, Some(body.to_string())));
+        return Ok((version, Some(body)));
 
         #[cfg(not(feature = "response-body"))]
         Ok((version, None))
