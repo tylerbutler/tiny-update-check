@@ -664,11 +664,12 @@ mod tests {
 
     #[test]
     fn test_from_detailed_to_update_info() {
-        let detailed = DetailedUpdateInfo {
+        let info = UpdateInfo {
             current: "1.0.0".to_string(),
             latest: "2.0.0".to_string(),
-            message: Some("please upgrade".to_string()),
         };
+        let mut detailed = DetailedUpdateInfo::from(info);
+        detailed.message = Some("please upgrade".to_string());
         let info = UpdateInfo::from(detailed);
         assert_eq!(info.current, "1.0.0");
         assert_eq!(info.latest, "2.0.0");
