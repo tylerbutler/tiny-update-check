@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.1.2 - 2026-04-21
+
+
+### Security
+
+#### Replace minreq with ureq 3.3.0 to fix RUSTSEC-2026-0098 and RUSTSEC-2026-0099
+
+`minreq 2.x` depends on `rustls 0.21` (EOL), which uses `rustls-webpki 0.101.x` — vulnerable to two name constraint validation bugs. No published version of `minreq` contains a fix. Switching to `ureq 3.3.0` resolves both advisories by pulling in `rustls-webpki 0.103.13`. The public API and feature flags (`native-tls`, `rustls`) are unchanged.
+
+
 ## v1.1.1 - 2026-03-14
 
 
