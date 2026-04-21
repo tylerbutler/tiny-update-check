@@ -1,15 +1,10 @@
 kind: Dependencies
 body: |-
-    Replace ureq 3.3.0 with minreq 3.0.0-rc.0
+    Use minreq 3.0.0-rc.0 for native-tls and ureq 3.3.0 for rustls
 
-    Reverts the ureq substitution from v1.1.2. The original compilation failure
-    with minreq 3.0.0-rc.0 was caused by using the renamed feature incorrectly:
-    the 2.x `rustls` feature became `https-rustls` in 3.0, and `native-tls`
-    became `https-native-tls`. Using `https-rustls` builds cleanly against
-    rustls 0.23.x.
-
-    Note: the `rustls` feature binary is ~1.7 MB larger than with ureq because
-    minreq's `https-rustls` uses rustls's default crypto provider (aws-lc-rs)
-    rather than ring. This is a minreq API limitation with no workaround on the
-    dependent side. The default `native-tls` build is unaffected.
+    The `native-tls` feature now uses `minreq 3.0.0-rc.0` (system TLS), which
+    produces the smallest binary (~540 KB). The `rustls` feature keeps `ureq
+    3.3.0` because minreq's rustls backend uses `aws-lc-rs` rather than `ring`,
+    adding ~1.7 MB. Both dependencies are now optional and only included when
+    their respective feature is enabled.
 time: 2026-04-21T18:13:04.362142000+00:00
