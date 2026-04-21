@@ -15,6 +15,16 @@ fn test_checker_configuration() {
 }
 
 #[test]
+fn test_check_detailed() {
+    let checker = UpdateChecker::new("serde", "1.0.0")
+        .cache_duration(Duration::from_secs(3600))
+        .timeout(Duration::from_secs(10))
+        .cache_dir(None);
+
+    assert!(checker.check_detailed().is_ok() || checker.check_detailed().is_err());
+}
+
+#[test]
 fn test_convenience_function() {
     // Test the convenience function compiles
     let result = tiny_update_check::check("serde", "1.0.0");

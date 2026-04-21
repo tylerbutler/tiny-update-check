@@ -1328,6 +1328,7 @@ dependencies = [
  "semver",
  "serde_json",
  "temp-env",
+ "tempfile",
  "tokio",
 ]
 

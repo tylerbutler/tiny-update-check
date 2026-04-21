@@ -597,6 +597,7 @@ pub fn check(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn test_update_info_display() {
@@ -641,6 +642,69 @@ mod tests {
 
         let err = Error::InvalidCrateName("empty".to_string());
         assert_eq!(err.to_string(), "Invalid crate name: empty");
+
+        let err = Error::VersionError("bad semver".to_string());
+        assert_eq!(err.to_string(), "Version error: bad semver");
+
+        let err = Error::CacheError("permission denied".to_string());
+        assert_eq!(err.to_string(), "Cache error: permission denied");
+    }
+
+    #[test]
+    fn test_from_update_info_to_detailed() {
+        let info = UpdateInfo {
+            current: "1.0.0".to_string(),
+            latest: "2.0.0".to_string(),
+        };
+        let detailed = DetailedUpdateInfo::from(info);
+        assert_eq!(detailed.current, "1.0.0");
+        assert_eq!(detailed.latest, "2.0.0");
+        assert!(detailed.message.is_none());
+    }
+
+    #[test]
+    fn test_from_detailed_to_update_info() {
+        let detailed = DetailedUpdateInfo {
+            current: "1.0.0".to_string(),
+            latest: "2.0.0".to_string(),
+            message: Some("please upgrade".to_string()),
+        };
+        let info = UpdateInfo::from(detailed);
+        assert_eq!(info.current, "1.0.0");
+        assert_eq!(info.latest, "2.0.0");
+    }
+
+    #[test]
+    fn compare_versions_rejects_invalid_current() {
+        let err = compare_versions("not-semver", "1.0.0".to_string(), false).unwrap_err();
+        assert!(matches!(err, Error::VersionError(_)));
+    }
+
+    #[test]
+    fn compare_versions_rejects_invalid_latest() {
+        let err = compare_versions("1.0.0", "not-semver".to_string(), false).unwrap_err();
+        assert!(matches!(err, Error::VersionError(_)));
+    }
+
+    #[test]
+    fn read_cache_returns_none_for_expired_entry() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test-cache");
+        fs::write(&path, "1.2.3").unwrap();
+
+        // Zero duration means any age is expired
+        let result = read_cache(&path, Duration::ZERO);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn read_cache_returns_value_when_fresh() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test-cache");
+        fs::write(&path, "  1.2.3  ").unwrap();
+
+        let result = read_cache(&path, Duration::from_secs(3600));
+        assert_eq!(result.unwrap(), "1.2.3");
     }
 
     #[test]

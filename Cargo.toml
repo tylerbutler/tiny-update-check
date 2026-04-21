@@ -33,6 +33,7 @@ required-features = ["async"]
 
 [dev-dependencies]
 temp-env = "0.3"
+tempfile = "3"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
 [profile.release]
