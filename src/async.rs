@@ -29,7 +29,7 @@ use crate::{
 /// An async update checker for crates.io.
 ///
 /// This is the async equivalent of [`crate::UpdateChecker`], using `reqwest`
-/// for HTTP requests instead of `minreq`.
+/// for HTTP requests instead of `ureq`.
 #[derive(Debug, Clone)]
 pub struct UpdateChecker {
     crate_name: String,
