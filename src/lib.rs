@@ -7,7 +7,7 @@
 //!
 //! ## Features
 //!
-//! - **Minimal dependencies**: Only `ureq`, `semver`, and `serde_json` (sync mode)
+//! - **Minimal dependencies**: Only `minreq`, `semver`, and `serde_json` (sync mode)
 //! - **Small binary impact**: ~0.5MB with `native-tls` (vs ~1.4MB for alternatives)
 //! - **Simple file-based caching**: Configurable cache duration (default: 24 hours)
 //! - **TLS flexibility**: Choose `native-tls` (default) or `rustls`
@@ -401,43 +401,24 @@ impl UpdateChecker {
         Ok((latest, response_body))
     }
 
-    fn build_agent(&self) -> ureq::Agent {
-        #[cfg(feature = "native-tls")]
-        let tls = ureq::tls::TlsConfig::builder()
-            .provider(ureq::tls::TlsProvider::NativeTls)
-            .build();
-        #[cfg(all(not(feature = "native-tls"), feature = "rustls"))]
-        let tls = ureq::tls::TlsConfig::builder()
-            .provider(ureq::tls::TlsProvider::Rustls)
-            .build();
-        #[cfg(not(any(feature = "native-tls", feature = "rustls")))]
-        let tls = ureq::tls::TlsConfig::default();
-
-        ureq::Agent::config_builder()
-            .timeout_global(Some(self.timeout))
-            .tls_config(tls)
-            .build()
-            .into()
-    }
-
     /// Fetch the latest version from crates.io.
     fn fetch_latest_version(&self) -> Result<(String, Option<String>), Error> {
         let url = format!("https://crates.io/api/v1/crates/{}", self.crate_name);
 
-        let body = self
-            .build_agent()
-            .get(&url)
-            .header("User-Agent", USER_AGENT)
-            .call()
-            .map_err(|e| Error::HttpError(e.to_string()))?
-            .body_mut()
-            .read_to_string()
+        let response = minreq::get(&url)
+            .with_timeout(self.timeout.as_secs())
+            .with_header("User-Agent", USER_AGENT)
+            .send()
             .map_err(|e| Error::HttpError(e.to_string()))?;
 
-        let version = extract_newest_version(&body)?;
+        let body = response
+            .as_str()
+            .map_err(|e| Error::HttpError(e.to_string()))?;
+
+        let version = extract_newest_version(body)?;
 
         #[cfg(feature = "response-body")]
-        return Ok((version, Some(body)));
+        return Ok((version, Some(body.to_string())));
 
         #[cfg(not(feature = "response-body"))]
         Ok((version, None))
@@ -447,16 +428,14 @@ impl UpdateChecker {
     ///
     /// Best-effort: returns `None` on any failure.
     fn fetch_message(&self, url: &str) -> Option<String> {
-        let body = self
-            .build_agent()
-            .get(url)
-            .header("User-Agent", USER_AGENT)
-            .call()
-            .ok()?
-            .body_mut()
-            .read_to_string()
+        let response = minreq::get(url)
+            .with_timeout(self.timeout.as_secs())
+            .with_header("User-Agent", USER_AGENT)
+            .send()
             .ok()?;
-        truncate_message(&body)
+
+        let body = response.as_str().ok()?;
+        truncate_message(body)
     }
 }
 
@@ -618,6 +597,7 @@ pub fn check(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn test_update_info_display() {
@@ -662,6 +642,70 @@ mod tests {
 
         let err = Error::InvalidCrateName("empty".to_string());
         assert_eq!(err.to_string(), "Invalid crate name: empty");
+
+        let err = Error::VersionError("bad semver".to_string());
+        assert_eq!(err.to_string(), "Version error: bad semver");
+
+        let err = Error::CacheError("permission denied".to_string());
+        assert_eq!(err.to_string(), "Cache error: permission denied");
+    }
+
+    #[test]
+    fn test_from_update_info_to_detailed() {
+        let info = UpdateInfo {
+            current: "1.0.0".to_string(),
+            latest: "2.0.0".to_string(),
+        };
+        let detailed = DetailedUpdateInfo::from(info);
+        assert_eq!(detailed.current, "1.0.0");
+        assert_eq!(detailed.latest, "2.0.0");
+        assert!(detailed.message.is_none());
+    }
+
+    #[test]
+    fn test_from_detailed_to_update_info() {
+        let info = UpdateInfo {
+            current: "1.0.0".to_string(),
+            latest: "2.0.0".to_string(),
+        };
+        let mut detailed = DetailedUpdateInfo::from(info);
+        detailed.message = Some("please upgrade".to_string());
+        let info = UpdateInfo::from(detailed);
+        assert_eq!(info.current, "1.0.0");
+        assert_eq!(info.latest, "2.0.0");
+    }
+
+    #[test]
+    fn compare_versions_rejects_invalid_current() {
+        let err = compare_versions("not-semver", "1.0.0".to_string(), false).unwrap_err();
+        assert!(matches!(err, Error::VersionError(_)));
+    }
+
+    #[test]
+    fn compare_versions_rejects_invalid_latest() {
+        let err = compare_versions("1.0.0", "not-semver".to_string(), false).unwrap_err();
+        assert!(matches!(err, Error::VersionError(_)));
+    }
+
+    #[test]
+    fn read_cache_returns_none_for_expired_entry() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test-cache");
+        fs::write(&path, "1.2.3").unwrap();
+
+        // Zero duration means any age is expired
+        let result = read_cache(&path, Duration::ZERO);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn read_cache_returns_value_when_fresh() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test-cache");
+        fs::write(&path, "  1.2.3  ").unwrap();
+
+        let result = read_cache(&path, Duration::from_secs(3600));
+        assert_eq!(result.unwrap(), "1.2.3");
     }
 
     #[test]

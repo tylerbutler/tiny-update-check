@@ -15,14 +15,14 @@ readme = "README.md"
 
 [dependencies]
 semver = "1.0.27"
-ureq = { version = "3.3.0", default-features = false }
+minreq = { version = "=3.0.0-rc.0", default-features = false }
 serde_json = { version = "1", default-features = false, features = ["std"] }
 reqwest = { version = "0.13.2", optional = true, default-features = false, features = ["rustls"] }
 
 [features]
 default = ["native-tls", "do-not-track"]
-native-tls = ["ureq/native-tls"]
-rustls = ["ureq/rustls"]
+native-tls = ["minreq/https-native-tls"]
+rustls = ["minreq/https-rustls"]
 async = ["reqwest"]
 do-not-track = []
 response-body = []
@@ -33,6 +33,7 @@ required-features = ["async"]
 
 [dev-dependencies]
 temp-env = "0.3"
+tempfile = "3"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
 [profile.release]
