@@ -17,12 +17,12 @@ readme = "README.md"
 semver = "1.0.27"
 # native-tls feature only: minreq + system TLS produces the smallest binary (~540 KB).
 # minreq's https-rustls uses aws-lc-rs, which adds ~1.7 MB; ureq is used for rustls instead.
-minreq = { version = "=3.0.0-rc.0", default-features = false, optional = true }
+minreq = { version = "=3.0.0-rc.1", default-features = false, optional = true }
 # rustls feature only: ureq's rustls uses ring rather than aws-lc-rs, keeping the binary small.
 # minreq's https-rustls would add ~1.7 MB due to aws-lc-rs; ureq avoids this.
 ureq = { version = "3.3.0", default-features = false, optional = true }
 serde_json = { version = "1", default-features = false, features = ["std"] }
-reqwest = { version = "0.13.2", optional = true, default-features = false, features = ["rustls"] }
+reqwest = { version = "0.13.3", optional = true, default-features = false, features = ["rustls"] }
 
 [features]
 default = ["native-tls", "do-not-track"]
