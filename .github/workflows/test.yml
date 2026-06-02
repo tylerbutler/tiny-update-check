@@ -48,7 +48,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
-      - uses: tylerbutler/actions/setup-rust@c4c45a8284082163bc58623acfc4b3dc98633c3d # ratchet:tylerbutler/actions/setup-rust@main
+      - uses: tylerbutler/actions/setup-rust@ee7def5950abcf0a519add705a95719ab345c05e # ratchet:tylerbutler/actions/setup-rust@main
         with:
           toolchain: ${{ matrix.rust }}
       - name: Run tests (all features)
@@ -69,7 +69,7 @@ jobs:
         run: |
           MSRV=$(grep '^rust-version' Cargo.toml | cut -d'"' -f2)
           echo "version=$MSRV" >> "$GITHUB_OUTPUT"
-      - uses: tylerbutler/actions/setup-rust@c4c45a8284082163bc58623acfc4b3dc98633c3d # ratchet:tylerbutler/actions/setup-rust@main
+      - uses: tylerbutler/actions/setup-rust@ee7def5950abcf0a519add705a95719ab345c05e # ratchet:tylerbutler/actions/setup-rust@main
         with:
           toolchain: ${{ steps.msrv.outputs.version }}
       - run: cargo check --all-features

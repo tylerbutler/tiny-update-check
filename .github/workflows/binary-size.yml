@@ -30,12 +30,12 @@ jobs:
     if: github.event.pull_request.draft != true
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
-      - uses: tylerbutler/actions/setup-rust@c4c45a8284082163bc58623acfc4b3dc98633c3d # ratchet:tylerbutler/actions/setup-rust@main
+      - uses: tylerbutler/actions/setup-rust@ee7def5950abcf0a519add705a95719ab345c05e # ratchet:tylerbutler/actions/setup-rust@main
       - name: Build size check examples
         run: |
           cargo build --release --example size_check
           cargo build --release --example size_check_rustls --no-default-features --features rustls
-      - uses: tylerbutler/actions/binary-size@c4c45a8284082163bc58623acfc4b3dc98633c3d # ratchet:tylerbutler/actions/binary-size@main
+      - uses: tylerbutler/actions/binary-size@ee7def5950abcf0a519add705a95719ab345c05e # ratchet:tylerbutler/actions/binary-size@main
         id: size
         with:
           paths: |

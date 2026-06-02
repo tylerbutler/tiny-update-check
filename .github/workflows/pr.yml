@@ -21,8 +21,8 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
         with:
           fetch-depth: 0
-      - uses: tylerbutler/actions/setup-rust@c4c45a8284082163bc58623acfc4b3dc98633c3d # ratchet:tylerbutler/actions/setup-rust@main
-      - uses: tylerbutler/actions/install-tools@c4c45a8284082163bc58623acfc4b3dc98633c3d # ratchet:tylerbutler/actions/install-tools@main
+      - uses: tylerbutler/actions/setup-rust@ee7def5950abcf0a519add705a95719ab345c05e # ratchet:tylerbutler/actions/setup-rust@main
+      - uses: tylerbutler/actions/install-tools@ee7def5950abcf0a519add705a95719ab345c05e # ratchet:tylerbutler/actions/install-tools@main
         with:
           tools: cargo-semver-checks
       - name: Get merge base
@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
         with:
           fetch-depth: 0
-      - uses: tylerbutler/actions/changie-check@c4c45a8284082163bc58623acfc4b3dc98633c3d # ratchet:tylerbutler/actions/changie-check@main
+      - uses: tylerbutler/actions/changie-check@ee7def5950abcf0a519add705a95719ab345c05e # ratchet:tylerbutler/actions/changie-check@main
         id: changelog
         with:
           base-sha: ${{ github.event.pull_request.base.sha }}
