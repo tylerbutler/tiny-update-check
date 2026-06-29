@@ -18,7 +18,7 @@ jobs:
     outputs:
       code: ${{ github.event_name == 'push' || steps.filter.outputs.code == 'true' }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7.0.0
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # ratchet:dorny/paths-filter@v3
         id: filter
         with:
@@ -35,16 +35,16 @@ jobs:
     if: needs.changes.outputs.code == 'true' && github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
-      - uses: tylerbutler/actions/setup-rust@c4c45a8284082163bc58623acfc4b3dc98633c3d # ratchet:tylerbutler/actions/setup-rust@main
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7.0.0
+      - uses: tylerbutler/actions/setup-rust@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/setup-rust@main
         with:
           components: llvm-tools-preview
-      - uses: tylerbutler/actions/install-tools@c4c45a8284082163bc58623acfc4b3dc98633c3d # ratchet:tylerbutler/actions/install-tools@main
+      - uses: tylerbutler/actions/install-tools@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/install-tools@main
         with:
           tools: cargo-llvm-cov,cargo-nextest
       - name: Generate coverage
         run: cargo llvm-cov nextest --all-features --lcov --output-path lcov.info
-      - uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # ratchet:codecov/codecov-action@v5
+      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # ratchet:codecov/codecov-action@v5
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
