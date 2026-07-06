@@ -18,11 +18,11 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft != true
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7.0.0
         with:
           fetch-depth: 0
-      - uses: tylerbutler/actions/setup-rust@c4c45a8284082163bc58623acfc4b3dc98633c3d # ratchet:tylerbutler/actions/setup-rust@main
-      - uses: tylerbutler/actions/install-tools@c4c45a8284082163bc58623acfc4b3dc98633c3d # ratchet:tylerbutler/actions/install-tools@main
+      - uses: tylerbutler/actions/setup-rust@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/setup-rust@main
+      - uses: tylerbutler/actions/install-tools@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/install-tools@main
         with:
           tools: cargo-semver-checks
       - name: Get merge base
@@ -48,7 +48,7 @@ jobs:
           exit 0
       - name: Comment on PR with breaking changes
         if: steps.semver.outputs.has_breaking == 'true'
-        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # ratchet:marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # ratchet:marocchino/sticky-pull-request-comment@v2
         with:
           header: semver-check
           message: |
@@ -63,7 +63,7 @@ jobs:
             If these changes are intentional, please ensure the version bump reflects the breaking change.
       - name: Remove semver comment if no breaking changes
         if: steps.semver.outputs.has_breaking == 'false'
-        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # ratchet:marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # ratchet:marocchino/sticky-pull-request-comment@v2
         with:
           header: semver-check
           delete: true
@@ -74,17 +74,17 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft != true
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7.0.0
         with:
           fetch-depth: 0
-      - uses: tylerbutler/actions/changie-check@c4c45a8284082163bc58623acfc4b3dc98633c3d # ratchet:tylerbutler/actions/changie-check@main
+      - uses: tylerbutler/actions/changie-check@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/changie-check@main
         id: changelog
         with:
           base-sha: ${{ github.event.pull_request.base.sha }}
           head-sha: ${{ github.event.pull_request.head.sha }}
       - name: Comment with changelog preview
         if: steps.changelog.outputs.has-entries == 'true'
-        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # ratchet:marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # ratchet:marocchino/sticky-pull-request-comment@v2
         with:
           header: changelog
           message: |
@@ -95,7 +95,7 @@ jobs:
             ${{ steps.changelog.outputs.preview }}
       - name: Comment about missing changelog
         if: steps.changelog.outputs.has-entries == 'false' && steps.changelog.outputs.needs-entry == 'true'
-        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # ratchet:marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # ratchet:marocchino/sticky-pull-request-comment@v2
         with:
           header: changelog
           message: |
@@ -110,7 +110,7 @@ jobs:
             ```
       - name: Remove changelog comment
         if: steps.changelog.outputs.has-entries == 'false' && steps.changelog.outputs.needs-entry == 'false'
-        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # ratchet:marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # ratchet:marocchino/sticky-pull-request-comment@v2
         with:
           header: changelog
           delete: true
