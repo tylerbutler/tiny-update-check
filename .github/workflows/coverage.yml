@@ -18,8 +18,8 @@ jobs:
     outputs:
       code: ${{ github.event_name == 'push' || steps.filter.outputs.code == 'true' }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
-      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # ratchet:dorny/paths-filter@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # ratchet:dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -35,16 +35,16 @@ jobs:
     if: needs.changes.outputs.code == 'true' && github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
-      - uses: tylerbutler/actions/setup-rust@c4c45a8284082163bc58623acfc4b3dc98633c3d # ratchet:tylerbutler/actions/setup-rust@main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+      - uses: tylerbutler/actions/setup-rust@ed7d5e5f1d4370a5ccf06503916e3c301102ab1c # ratchet:tylerbutler/actions/setup-rust@main
         with:
           components: llvm-tools-preview
-      - uses: tylerbutler/actions/install-tools@c4c45a8284082163bc58623acfc4b3dc98633c3d # ratchet:tylerbutler/actions/install-tools@main
+      - uses: tylerbutler/actions/install-tools@ed7d5e5f1d4370a5ccf06503916e3c301102ab1c # ratchet:tylerbutler/actions/install-tools@main
         with:
           tools: cargo-llvm-cov,cargo-nextest
       - name: Generate coverage
         run: cargo llvm-cov nextest --all-features --lcov --output-path lcov.info
-      - uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # ratchet:codecov/codecov-action@v5
+      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # ratchet:codecov/codecov-action@v7
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
