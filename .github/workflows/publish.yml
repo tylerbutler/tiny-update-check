@@ -9,9 +9,9 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
 
-      - uses: tylerbutler/actions/setup-rust@c4c45a8284082163bc58623acfc4b3dc98633c3d # ratchet:tylerbutler/actions/setup-rust@main
+      - uses: tylerbutler/actions/setup-rust@ed7d5e5f1d4370a5ccf06503916e3c301102ab1c # ratchet:tylerbutler/actions/setup-rust@main
 
       - name: Publish to crates.io
         run: cargo publish
