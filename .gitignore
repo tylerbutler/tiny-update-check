@@ -23,3 +23,7 @@ Thumbs.db
 .env
 .env.local
 .claude/settings.local.json
+
+
+# APM dependencies
+apm_modules/
