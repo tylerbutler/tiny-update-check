@@ -1,3 +1,4 @@
 [tools]
 changie = "latest"
 just = "latest"
+"github:obi1kenobi/cargo-semver-checks" = "0.50.0"

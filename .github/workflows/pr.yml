@@ -22,9 +22,9 @@ jobs:
         with:
           fetch-depth: 0
       - uses: tylerbutler/actions/setup-rust@c4c45a8284082163bc58623acfc4b3dc98633c3d # ratchet:tylerbutler/actions/setup-rust@main
-      - uses: tylerbutler/actions/install-tools@c4c45a8284082163bc58623acfc4b3dc98633c3d # ratchet:tylerbutler/actions/install-tools@main
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # ratchet:jdx/mise-action@v4
         with:
-          tools: cargo-semver-checks
+          install_args: github:obi1kenobi/cargo-semver-checks
       - name: Get merge base
         id: merge-base
         run: |
@@ -114,4 +114,3 @@ jobs:
         with:
           header: changelog
           delete: true
-
