@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
-      - uses: tylerbutler/actions/setup-rust@ed7d5e5f1d4370a5ccf06503916e3c301102ab1c # ratchet:tylerbutler/actions/setup-rust@main
+      - uses: tylerbutler/actions/setup-rust@74c553a56a41cc46a32fccd83c9a0e385c396a00 # ratchet:tylerbutler/actions/setup-rust@main
       - run: cargo test --all-features
 
   lint:
@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
-      - uses: tylerbutler/actions/setup-rust@ed7d5e5f1d4370a5ccf06503916e3c301102ab1c # ratchet:tylerbutler/actions/setup-rust@main
+      - uses: tylerbutler/actions/setup-rust@74c553a56a41cc46a32fccd83c9a0e385c396a00 # ratchet:tylerbutler/actions/setup-rust@main
         with:
           components: clippy
       - run: cargo clippy --all-targets --all-features -- -D warnings
@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
-      - uses: tylerbutler/actions/setup-rust@ed7d5e5f1d4370a5ccf06503916e3c301102ab1c # ratchet:tylerbutler/actions/setup-rust@main
+      - uses: tylerbutler/actions/setup-rust@74c553a56a41cc46a32fccd83c9a0e385c396a00 # ratchet:tylerbutler/actions/setup-rust@main
         with:
           components: rustfmt
       - run: cargo fmt --all -- --check
@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
-      - uses: tylerbutler/actions/setup-rust@ed7d5e5f1d4370a5ccf06503916e3c301102ab1c # ratchet:tylerbutler/actions/setup-rust@main
+      - uses: tylerbutler/actions/setup-rust@74c553a56a41cc46a32fccd83c9a0e385c396a00 # ratchet:tylerbutler/actions/setup-rust@main
       - run: RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
 
   # Gate job for required status check — reports a single fixed-name check
