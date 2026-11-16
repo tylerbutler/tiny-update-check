@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
-      - uses: tylerbutler/actions/install-tools@74c553a56a41cc46a32fccd83c9a0e385c396a00 # ratchet:tylerbutler/actions/install-tools@main
+      - uses: tylerbutler/actions/install-tools@d7e1e50c375c5eb1a912a0849052ce8473881ecc # ratchet:tylerbutler/actions/install-tools@main
         with:
           tools: cargo-audit,cargo-deny
       - name: Run cargo audit

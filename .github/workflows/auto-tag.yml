@@ -21,7 +21,7 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
 
-      - uses: tylerbutler/actions/changie-auto-tag@74c553a56a41cc46a32fccd83c9a0e385c396a00 # ratchet:tylerbutler/actions/changie-auto-tag@main
+      - uses: tylerbutler/actions/changie-auto-tag@d7e1e50c375c5eb1a912a0849052ce8473881ecc # ratchet:tylerbutler/actions/changie-auto-tag@main
         id: auto-tag
         with:
           create-release: true
