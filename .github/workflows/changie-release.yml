@@ -24,13 +24,13 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
 
-      - uses: tylerbutler/actions/changie-release@74c553a56a41cc46a32fccd83c9a0e385c396a00 # ratchet:tylerbutler/actions/changie-release@main
+      - uses: tylerbutler/actions/changie-release@d7e1e50c375c5eb1a912a0849052ce8473881ecc # ratchet:tylerbutler/actions/changie-release@main
         id: release
         with:
           token: ${{ steps.app-token.outputs.token }}
           version-files: 'Cargo.toml:version'
 
-      - uses: tylerbutler/actions/setup-rust@74c553a56a41cc46a32fccd83c9a0e385c396a00 # ratchet:tylerbutler/actions/setup-rust@main
+      - uses: tylerbutler/actions/setup-rust@d7e1e50c375c5eb1a912a0849052ce8473881ecc # ratchet:tylerbutler/actions/setup-rust@main
         if: steps.release.outputs.skipped != 'true'
         with:
           tools: "just,cargo-bloat"
