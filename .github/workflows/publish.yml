@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
 
-      - uses: tylerbutler/actions/setup-rust@74c553a56a41cc46a32fccd83c9a0e385c396a00 # ratchet:tylerbutler/actions/setup-rust@main
+      - uses: tylerbutler/actions/setup-rust@b4980d28d8c7ad0044fc2d3fdff208cb5aa2a112 # ratchet:tylerbutler/actions/setup-rust@main
 
       - name: Publish to crates.io
         run: cargo publish
